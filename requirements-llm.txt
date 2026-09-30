@@ -1,0 +1,2 @@
+# Optional dependency for the Groq transcript enrichment module.
+groq>=0.30.0

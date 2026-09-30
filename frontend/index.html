@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>meetReaderCB — Sign in</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<main class="login">
+  <div class="login-inner">
+    <div class="login-card">
+
+      <header>
+        <div class="login-mark">meetReaderCB</div>
+        <p class="login-tag">Understand every meeting.</p>
+      </header>
+
+      <form class="login-form" id="loginForm" novalidate>
+        <div class="field">
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" autocomplete="email"
+                 placeholder="you@company.com" required>
+        </div>
+
+        <div class="field">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" autocomplete="current-password"
+                 placeholder="••••••••" required>
+        </div>
+
+        <button type="submit" class="button button--ink button--full">Sign In</button>
+
+        <div class="login-foot">
+          <a class="link-quiet" href="#">Forgot password?</a>
+        </div>
+      </form>
+
+    </div>
+  </div>
+
+  <p class="login-legal">meetReaderCB · Meeting intelligence for business teams</p>
+</main>
+
+<script src="js/app.js"></script>
+</body>
+</html>
