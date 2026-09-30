@@ -28,3 +28,14 @@ curl.exe -X POST http://127.0.0.1:8000/sessions/import `
 The API returns the UI's existing meeting object shape: `id`, `title`, `group`, `date`, `dateLabel`, `time`, `media`, `status`, `summary`, `speakers`, `intelligence`, and `segments`. `intelligence` retains `discussed`, `keyDiscussion`, `decisions`, `actionItems`, `followUps`, `questions`, and `concerns`. Speakers retain `id`, `name`, `role`, `confidence`, `join`, and `leave`; transcript segments retain `t`, `time`, `speaker`, `lang`, `tx`, and `en`. Optional fields such as `quality`, `verified`, `evidence`, `end`, and `roman` add review state, evidence links, estimated transcript intervals, or transliteration without replacing the UI's established fields.
 
 The SQLite database and imported media are written under the Git-ignored `data/` directory. Media access supports byte ranges for seeking. Local files use the `LocalStorage` implementation behind the `Storage` protocol so a future S3 implementation can replace it.
+
+## Tests and processing pipeline
+
+Install `backend/requirements-dev.txt` into the backend environment to run the offline summary regression and API tests with `python -m pytest`. The ASR and diarization stages require the ML dependencies and a suitable GPU environment. For local/offline runs, precompute those stages and provide their JSON/CSV outputs:
+
+```powershell
+python -m indicmeet.pipeline --media recording.mp4 --session-id demo `
+  --diar-csv diarization.csv --asr-json asr.json --dry-summary summary.json
+```
+
+The pipeline caches stage results in `data/sessions/<id>/`; use `--force` to rerun stages, and `--import-url http://127.0.0.1:8000/sessions/import` to send the assembled session and media to the local API.

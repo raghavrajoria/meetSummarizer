@@ -1,0 +1,15 @@
+{
+  "attendees": [
+    "Shashank",
+    "Neha",
+    "Deepika",
+    "KT",
+    "Manoj",
+    "Sindhu",
+    "Sanam"
+  ],
+  "aliases": {
+    "KT": ["Kitty", "Kirti", "Keith", "Keithy"],
+    "Sindhu": ["Sendu"]
+  }
+}
