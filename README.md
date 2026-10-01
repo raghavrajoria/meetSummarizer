@@ -5,7 +5,7 @@ meetSummerizer is a local meeting intelligence application for importing recordi
 ## Folder map
 
 - `backend/` — FastAPI service, SQLite persistence, and media storage adapter.
-- `frontend/` — static HTML, CSS, and JavaScript meeting review interface.
+- `frontend/` — React meeting review app (Vite) plus its shared CSS design system.
 - `indicmeet/` — current ASR and summary pipeline modules.
 - `experiments/` — legacy scripts, notebooks, and model experiments.
 - `fixtures/` — small sample session data and media for local development.
@@ -15,7 +15,21 @@ meetSummerizer is a local meeting intelligence application for importing recordi
 
 ## Local API
 
-Install the packages in `backend/requirements.txt` in a fresh Python 3.10+ environment, then start the API with `python -m uvicorn backend.main:app --reload`. Start the static frontend with `python frontend/serve.py`; it requests sessions from `http://127.0.0.1:8000` and continues to use the existing HTML, CSS, and JavaScript.
+Install the packages in `backend/requirements.txt` in a fresh Python 3.10+ environment, then start the API from the repository root:
+
+```powershell
+python -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+In a second terminal, start the React development server:
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+Open the URL Vite prints (normally `http://localhost:5173`). Vite proxies `/api` requests to the local backend. To build the production UI, run `npm run build` from `frontend/`; the static bundle is written to `frontend/dist/`. For a deployed API, define `window.MEETINGS_API_BASE` before the React entry script loads.
 
 Import the sample session and its matching three-minute media clip with:
 

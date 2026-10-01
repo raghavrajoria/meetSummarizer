@@ -1,9 +1,10 @@
-"""Local preview server for the Meetly UI.
+"""Local Range-capable preview server for the built React UI.
 
 Python's stdlib http.server does not implement HTTP Range requests, so media
 elements report seekable = [] and the scrub bar cannot move. This adds Range
 support, which is all a static host needs for a <video>/<audio> element to seek.
 
+    npm run build
     python serve.py            # http://localhost:5173
     python serve.py 8080       # pick a port
 """
@@ -96,7 +97,9 @@ class RangeHandler(SimpleHTTPRequestHandler):
 
 def main():
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 5173
-    root = os.path.dirname(os.path.abspath(__file__))
+    root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dist")
+    if not os.path.isdir(root):
+        raise SystemExit("React build not found. Run `npm run build` in frontend/, or use `npm run dev`.")
     handler = partial(RangeHandler, directory=root)
     server = ThreadingHTTPServer(("127.0.0.1", port), handler)
     print(f"Meetly UI  ->  http://localhost:{port}   (serving {root})")

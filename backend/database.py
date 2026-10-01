@@ -1,20 +1,18 @@
 """SQLite database setup for the local IndicMeet service."""
 
-from pathlib import Path
-
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from indicmeet.settings import get_settings
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DATA_DIR = PROJECT_ROOT / "data"
+_settings = get_settings()
+DATA_DIR = _settings.data_dir
 DATA_DIR.mkdir(parents=True, exist_ok=True)
-DATABASE_URL = f"sqlite:///{(DATA_DIR / 'meetSummerizer.sqlite3').as_posix()}"
+MEDIA_DIR = _settings.media_dir
+DATABASE_URL = _settings.database_url
 
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False},
-)
+connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite:") else {}
+engine = create_engine(DATABASE_URL, connect_args=connect_args)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 

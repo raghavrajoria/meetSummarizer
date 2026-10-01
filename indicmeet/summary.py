@@ -13,12 +13,17 @@ v3 changes over v2:
 """
 import json, re, os, time, difflib, hashlib, requests
 from collections import Counter, defaultdict
+from .settings import get_settings
 
-MODEL = "openai/gpt-oss-20b"
-URL = "https://api.groq.com/openai/v1/chat/completions"
-CACHE_DIR = os.environ.get("INDICMEET_LLM_CACHE", "llm_cache")
+_settings = get_settings()
+MODEL = _settings.groq_model
+URL = _settings.groq_api_url
+CACHE_DIR = str(_settings.llm_cache_dir)
 CACHE_STATS = {"hit": 0, "api": 0}
-MAX_WAIT_S = 120
+MAX_WAIT_S = _settings.groq_max_wait_seconds
+TEMPERATURE = _settings.groq_temperature
+REQUEST_TIMEOUT_S = _settings.groq_request_timeout_seconds
+SUMMARY_PROMPT_VERSION = 1
 _window = []  # (timestamp, tokens) rolling 60s budget
 
 def ntok(t): return len(t) // 3 + 1
@@ -28,7 +33,7 @@ def mmss(s):
     return f"{h}:{m:02d}:{sec:02d}" if h else f"{m}:{sec:02d}"
 
 def _key():
-    k = os.environ.get("GROQ_API_KEY")
+    k = get_settings().groq_api_key
     if k: return k
     from kaggle_secrets import UserSecretsClient
     return UserSecretsClient().get_secret("GROQ_API_KEY")
@@ -52,9 +57,9 @@ def _call_llm_raw(system, user, max_out, key, warn):
     for _ in range(6):
         _wait(need)
         try:
-            r = requests.post(URL, headers={"Authorization": f"Bearer {key}"}, timeout=120,
+            r = requests.post(URL, headers={"Authorization": f"Bearer {key}"}, timeout=REQUEST_TIMEOUT_S,
                 json={"model": MODEL, "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
-                      "max_completion_tokens": max_out, "reasoning_effort": "low", "temperature": 0.2})
+                      "max_completion_tokens": max_out, "reasoning_effort": "low", "temperature": TEMPERATURE})
         except requests.RequestException as e:
             warn(f"network error: {e}"); time.sleep(3); continue
         if r.status_code == 429:
@@ -74,7 +79,9 @@ def _call_llm_raw(system, user, max_out, key, warn):
     warn("gave up after 6 attempts"); return None, "net"
 
 def _cache_path(system, user, max_out):
-    h = hashlib.sha256(json.dumps([MODEL, system, user, max_out], ensure_ascii=False).encode("utf-8")).hexdigest()
+    h = hashlib.sha256(json.dumps([SUMMARY_PROMPT_VERSION, MODEL, URL, TEMPERATURE, REQUEST_TIMEOUT_S,
+                                  system, user, max_out],
+                                  ensure_ascii=False).encode("utf-8")).hexdigest()
     return os.path.join(CACHE_DIR, h + ".json")
 
 def call_llm(system, user, max_out, key, warn):
@@ -301,6 +308,12 @@ def summarize(asr, attendees=None, aliases=None, api_key=None, log=print, use_hi
     segs = [{"idx": r["idx"], "start": r["start"], "spk": "S" + r["speaker"].split("_")[-1], "text": (r.get("text") or "").strip().replace("\u2019", "'")}
             for r in sorted(asr, key=lambda r: r["start"]) if r.get("quality") != "rejected"]
     segs = [s for s in segs if re.search(r"\w", s["text"]) and "thanks for watching" not in s["text"].lower()]
+    # Whisper often hallucinates foreign-language filler on very short clips ("Absolutamente.", "Tchau, doutora Ivana.").
+    # The ASR stage marks these method=whisper_latin_unresolved + quality=review; keep them out of the LLM input.
+    bad_ids = {r["idx"] for r in asr if r.get("method") == "whisper_latin_unresolved" and r.get("quality") == "review"}
+    if bad_ids:
+        segs = [s for s in segs if s["idx"] not in bad_ids]
+        warn(f"excluded {len(bad_ids)} unresolved-language review segments from the LLM input: {sorted(bad_ids)}")
     valid = {s["idx"] for s in segs}; when = {s["idx"]: mmss(s["start"]) for s in segs}
     pos = {s["idx"]: i for i, s in enumerate(segs)}
     sline = lambda s: f'[{s["idx"]}|{mmss(s["start"])}|{s["spk"]}] {s["text"]}'

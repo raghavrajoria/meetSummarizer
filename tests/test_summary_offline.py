@@ -47,8 +47,11 @@ def fake_llm(system, user, max_out, key, warn):
     raise AssertionError("unexpected prompt")
 
 real_call_llm = m.call_llm
-m.call_llm = fake_llm
-r = m.summarize(ASR, attendees=ATT, aliases=AL, api_key="x", log=lambda *a: None)
+try:
+    m.call_llm = fake_llm
+    r = m.summarize(ASR, attendees=ATT, aliases=AL, api_key="x", log=lambda *a: None)
+finally:
+    m.call_llm = real_call_llm
 
 assert r["speaker_hints"] == {"S07": "Neha", "S06": "Deepika", "S05": "Shashank", "S08": "KT", "S00": "Sindhu"}, r["speaker_hints"]
 own = {a["task"].split()[0] + " " + a["task"].split()[1]: (a["owner"], a["owner_basis"]) for a in r["action_items"]}
@@ -73,24 +76,59 @@ class R:
 seq = [R(429, '{"error":{"message":"Rate limit reached ... Please try again in 2.5s."}}'),
        R(200, js={"choices": [{"finish_reason": "stop", "message": {"content": '{"a": 1}'}}]})]
 posts, slept = [], []
-m.requests.post = lambda *a, **k: (posts.append(1), seq.pop(0))[1]
-m.time.sleep = lambda s: slept.append(s)
-m.CACHE_DIR = tempfile.mkdtemp()
-m.call_llm = real_call_llm
-warns = []
-obj, why = m.call_llm("sys", "usr", 100, "k", warns.append)
-assert obj == {"a": 1} and why == "ok" and len(posts) == 2 and abs(slept[0] - 3.5) < 1e-6, (obj, why, posts, slept)
-assert any("429" in w for w in warns), "real 429 message must be shown"
-obj2, _ = m.call_llm("sys", "usr", 100, "k", warns.append)
-assert obj2 == {"a": 1} and len(posts) == 2 and m.CACHE_STATS["hit"] >= 1, "second identical call must hit the cache"
-seq[:] = [R(429, "Please try again in 5m10.2s.")]
-obj3, why3 = m.call_llm("sys2", "usr", 100, "k", warns.append)
-assert obj3 is None and why3 == "ratelimit"
-assert abs(m._retry_after("try again in 850ms") - 1.85) < 1e-6 and abs(m._retry_after("try again in 1h2m3s") - 3724) < 1e-6
-print("ALL OFFLINE CHECKS PASSED")
+real_post, real_sleep, real_cache_dir = m.requests.post, m.time.sleep, m.CACHE_DIR
+real_cache_stats, real_window = m.CACHE_STATS.copy(), m._window[:]
+try:
+    m.requests.post = lambda *a, **k: (posts.append(1), seq.pop(0))[1]
+    m.time.sleep = lambda s: slept.append(s)
+    m.CACHE_DIR = tempfile.mkdtemp()
+    m.call_llm = real_call_llm
+    warns = []
+    obj, why = m.call_llm("sys", "usr", 100, "k", warns.append)
+    assert obj == {"a": 1} and why == "ok" and len(posts) == 2 and abs(slept[0] - 3.5) < 1e-6, (obj, why, posts, slept)
+    assert any("429" in w for w in warns), "real 429 message must be shown"
+    obj2, _ = m.call_llm("sys", "usr", 100, "k", warns.append)
+    assert obj2 == {"a": 1} and len(posts) == 2 and m.CACHE_STATS["hit"] >= 1, "second identical call must hit the cache"
+    seq[:] = [R(429, "Please try again in 5m10.2s.")]
+    obj3, why3 = m.call_llm("sys2", "usr", 100, "k", warns.append)
+    assert obj3 is None and why3 == "ratelimit"
+    assert abs(m._retry_after("try again in 850ms") - 1.85) < 1e-6 and abs(m._retry_after("try again in 1h2m3s") - 3724) < 1e-6
+    print("ALL OFFLINE CHECKS PASSED")
+finally:
+    m.requests.post, m.time.sleep, m.CACHE_DIR = real_post, real_sleep, real_cache_dir
+    m.call_llm = real_call_llm
+    m.CACHE_STATS.clear()
+    m.CACHE_STATS.update(real_cache_stats)
+    m._window[:] = real_window
 
 
 def test_summary_regression_completed():
     # The detailed regression assertions above run offline during collection.
     assert r["overview"]
     assert calls["rec"] == 1
+
+
+def test_unresolved_language_review_segments_are_excluded(monkeypatch):
+    prompts = []
+
+    def fake_llm(system, user, max_out, key, warn):
+        prompts.append(user)
+        if system.startswith("Extract notes"):
+            return ({"key_discussion": [], "decisions": [], "follow_ups": [], "questions": [], "concerns": []}, "ok")
+        if system.startswith("Find every explicit"):
+            return ({"action_items": [], "rejected": []}, "ok")
+        if system.startswith('Return ONLY JSON {"overview"'):
+            return ({"overview": "The group discussed the project."}, "ok")
+        raise AssertionError("unexpected summary prompt")
+
+    monkeypatch.setattr(m, "call_llm", fake_llm)
+    suspicious = ["veces", "Absolutamente.", "Sin duda, sin duda.", "Non, c'est jamais.",
+                  "Iya, lihat dulu. Oke.", "Tchau, doutora Ivana."]
+    asr = [{"idx": 0, "start": 1, "end": 3, "speaker": "SPEAKER_01", "text": "We discussed the project plan.",
+            "quality": "accepted", "method": "whisper"}]
+    asr.extend({"idx": i + 1, "start": 5 + i, "end": 5.5 + i, "speaker": "SPEAKER_02", "text": text,
+                "quality": "review", "method": "whisper_latin_unresolved"} for i, text in enumerate(suspicious))
+    result = m.summarize(asr, attendees=[], aliases={}, api_key="test-only", log=lambda *args: None)
+    assert result["stats"]["segments"] == 1
+    assert any("excluded 6 unresolved-language" in warning for warning in result["warnings"])
+    assert all(text not in "\n".join(prompts) for text in suspicious)

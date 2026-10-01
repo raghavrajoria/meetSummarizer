@@ -1,10 +1,7 @@
 """indicmeet_asr_v2.py - reconstructed. Diarization-turn segmentation -> Whisper (LID) -> route to IndicConformer (CTC)."""
-import os, re, time, json, math
-import numpy as np
-import pandas as pd
-import torch
-import torchaudio
+import os, re, time, json, math, csv
 from collections import Counter
+from .settings import get_settings
 
 
 class IndicMeetASR:
@@ -16,7 +13,19 @@ class IndicMeetASR:
                    "tam": "ta", "tel": "te", "kan": "kn", "mal": "ml", "pan": "pa", "ory": "or",
                    "ori": "or", "asm": "as"}
 
-    def __init__(self, device="cuda:0", whisper_size="large-v3", indic_decoder="ctc", max_indic_chunk_s=8.0):
+    def __init__(self, device=None, whisper_size=None, indic_decoder=None, max_indic_chunk_s=None):
+        import numpy as np
+        import pandas as pd
+        import torch
+        import torchaudio
+
+        settings = get_settings()
+        device = device or settings.asr_device
+        whisper_size = whisper_size or settings.whisper_model
+        indic_decoder = indic_decoder or settings.asr_indic_decoder
+        max_indic_chunk_s = max_indic_chunk_s or settings.asr_max_indic_chunk_seconds
+        self._numpy, self._torch, self._torchaudio = np, torch, torchaudio
+        self.settings = settings
         from faster_whisper import WhisperModel
         from transformers import AutoModel, Wav2Vec2ForSequenceClassification, AutoFeatureExtractor
         self.device = device
@@ -27,17 +36,17 @@ class IndicMeetASR:
         print(f"[1/3] Loading Whisper {whisper_size} ...")
         dev_type, _, dev_idx = device.partition(":")
         self.whisper = WhisperModel(whisper_size, device=dev_type, device_index=int(dev_idx or 0),
-                                    compute_type="float16")
+                                    compute_type=settings.whisper_compute_type)
         print(f"      done ({time.time()-t0:.0f}s elapsed)")
 
         print("[2/3] Loading IndicConformer 600M ...")
         self.indic_model = AutoModel.from_pretrained(
-            "ai4bharat/indic-conformer-600m-multilingual", trust_remote_code=True).to(device)
+            settings.indicconformer_model, trust_remote_code=True).to(device)
         print(f"      done ({time.time()-t0:.0f}s elapsed)")
 
         print("[3/3] Loading MMS-LID ...")
-        self.lid_processor = AutoFeatureExtractor.from_pretrained("facebook/mms-lid-256")
-        self.lid_model = Wav2Vec2ForSequenceClassification.from_pretrained("facebook/mms-lid-256").to(device)
+        self.lid_processor = AutoFeatureExtractor.from_pretrained(settings.mms_lid_model)
+        self.lid_model = Wav2Vec2ForSequenceClassification.from_pretrained(settings.mms_lid_model).to(device)
         self.lid_model.eval()
         print(f"IndicMeetASR ready in {time.time()-t0:.0f}s")
 
@@ -54,20 +63,20 @@ class IndicMeetASR:
         return "hi" if lang == "ur" else lang
 
     def _mms_lid(self, wav_chunk):
-        x = wav_chunk.detach().cpu().numpy().astype(np.float32)[: 30 * self.SR]
+        x = wav_chunk.detach().cpu().numpy().astype(self._numpy.float32)[: 30 * self.SR]
         if len(x) < self.SR:
-            x = np.pad(x, (0, self.SR - len(x)))
+            x = self._numpy.pad(x, (0, self.SR - len(x)))
         inputs = self.lid_processor(x, sampling_rate=self.SR, return_tensors="pt")
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
-        with torch.no_grad():
+        with self._torch.no_grad():
             logits = self.lid_model(**inputs).logits
-        probs = torch.softmax(logits, dim=-1)[0]
-        idx = int(torch.argmax(probs))
+        probs = self._torch.softmax(logits, dim=-1)[0]
+        idx = int(self._torch.argmax(probs))
         raw = self.lid_model.config.id2label[idx]
         return self.MMS_TO_ISO1.get(raw, raw), float(probs[idx])
 
     def _indic_decode(self, wav, lang_code):
-        with torch.no_grad():
+        with self._torch.no_grad():
             out = self.indic_model(wav.unsqueeze(0).to(self.device), lang_code, self.indic_decoder)
         if isinstance(out, (list, tuple)):
             out = " ".join(str(o) for o in out)
@@ -109,13 +118,13 @@ class IndicMeetASR:
             reasons.append(f"language_outside_allowlist:{lang}")
         quality = "rejected" if reject else ("review" if reasons else "accepted")
         return {"text": text, "lang": lang, "method": method, "quality": quality,
-                "reasons": reasons, "duration": round(dur, 2), **extra}
+                "reasons": reasons, "duration": round(dur, 2), "confidence": None, **extra}
 
     # ---------- main routing ----------
     def transcribe_chunk(self, wav_chunk):
         dur = wav_chunk.shape[0] / self.SR
-        audio_np = wav_chunk.detach().cpu().numpy().astype(np.float32)
-        segs, info = self.whisper.transcribe(audio_np, language=None, beam_size=5,
+        audio_np = wav_chunk.detach().cpu().numpy().astype(self._numpy.float32)
+        segs, info = self.whisper.transcribe(audio_np, language=None, beam_size=self.settings.whisper_beam_size,
                                              vad_filter=False, condition_on_previous_text=False)
         whisper_text = " ".join(s.text.strip() for s in segs).strip()
         w_lang, w_conf = info.language, float(info.language_probability)
@@ -156,33 +165,57 @@ class IndicMeetASR:
 
     # ---------- turns from diarization CSV ----------
     @staticmethod
-    def build_turns(csv_path, min_dur=0.3, max_gap=0.7, max_len=25.0):
-        df = pd.read_csv(csv_path).sort_values("start").reset_index(drop=True)
+    def build_turns(csv_path, min_dur=0.3, max_gap=0.7, max_len=25.0, audio_duration=None):
+        with open(csv_path, newline="", encoding="utf-8-sig") as stream:
+            reader = csv.DictReader(stream)
+            if not reader.fieldnames or not {"start", "end", "speaker"}.issubset(reader.fieldnames):
+                raise ValueError("Diarization CSV must contain start, end, and speaker columns")
+            rows = [{"start": float(row["start"]), "end": float(row["end"]),
+                     "speaker": row["speaker"]} for row in reader]
+        rows.sort(key=lambda row: row["start"])
         merged = []
-        for _, r in df.iterrows():
-            if merged and merged[-1]["speaker"] == r.speaker and r.start - merged[-1]["end"] <= max_gap:
-                merged[-1]["end"] = float(r.end)
+        for row in rows:
+            if merged and merged[-1]["speaker"] == row["speaker"] and row["start"] - merged[-1]["end"] <= max_gap:
+                merged[-1]["end"] = max(merged[-1]["end"], row["end"])
             else:
-                merged.append({"start": float(r.start), "end": float(r.end), "speaker": r.speaker})
+                merged.append(row)
         turns = []
         for t in merged:
-            d = t["end"] - t["start"]
+            start = max(0.0, t["start"])
+            end = t["end"]
+            if audio_duration is not None:
+                end = min(end, max(0.0, float(audio_duration)))
+                start = min(start, max(0.0, float(audio_duration)))
+            d = end - start
             if d < min_dur:
                 continue
             n = max(1, math.ceil(d / max_len))
             step = d / n
             for i in range(n):
-                turns.append({"start": round(t["start"] + i * step, 3),
-                              "end": round(t["start"] + (i + 1) * step, 3),
+                turn_start = round(start + i * step, 3)
+                turn_end = round(start + (i + 1) * step, 3)
+                if audio_duration is not None:
+                    turn_start = min(turn_start, float(audio_duration))
+                    turn_end = min(turn_end, float(audio_duration))
+                turns.append({"start": turn_start,
+                              "end": turn_end,
                               "speaker": t["speaker"]})
         return turns
 
     # ---------- full run with progress + checkpoints ----------
     def transcribe_turns(self, wav_path, turns, out_json=None, checkpoint_every=25, verbose=True):
-        wav, sr = torchaudio.load(wav_path)
+        wav, sr = self._torchaudio.load(wav_path)
         wav = wav.mean(dim=0)
         if sr != self.SR:
-            wav = torchaudio.transforms.Resample(sr, self.SR)(wav)
+            wav = self._torchaudio.transforms.Resample(sr, self.SR)(wav)
+        audio_duration = wav.shape[0] / self.SR
+        bounded_turns = []
+        for turn in turns:
+            start = min(max(0.0, float(turn["start"])), audio_duration)
+            end = min(max(0.0, float(turn["end"])), audio_duration)
+            if end > start:
+                bounded_turns.append({**turn, "start": start, "end": end})
+        turns = bounded_turns
         total_audio = sum(t["end"] - t["start"] for t in turns)
         print(f"Turns: {len(turns)} | speech to process: {total_audio/60:.1f} min | device: {self.device}")
         results, done_audio, t0 = [], 0.0, time.time()
@@ -193,7 +226,7 @@ class IndicMeetASR:
             except Exception as e:
                 res = {"text": "", "lang": "unknown", "method": "error", "quality": "rejected",
                        "reasons": [f"exception:{type(e).__name__}:{str(e)[:120]}"],
-                       "duration": round(chunk.shape[0] / self.SR, 2)}
+                       "duration": round(chunk.shape[0] / self.SR, 2), "confidence": None}
             res.update({"idx": i, "start": t["start"], "end": t["end"], "speaker": t["speaker"]})
             results.append(res)
             done_audio += t["end"] - t["start"]

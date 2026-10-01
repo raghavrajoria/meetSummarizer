@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import re
 from contextlib import asynccontextmanager
-from pathlib import Path
 from typing import Any
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
@@ -14,13 +13,13 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .database import Base, DATA_DIR, engine, get_db
+from .database import Base, MEDIA_DIR, engine, get_db
 from .models import MeetingSession
 from .storage import LocalStorage, Storage
+from indicmeet.settings import get_settings
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-storage: Storage = LocalStorage(DATA_DIR / "media")
+storage: Storage = LocalStorage(MEDIA_DIR)
 RANGE_PATTERN = re.compile(r"^bytes=(\d*)-(\d*)$")
 
 
@@ -33,7 +32,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="meetSummerizer API", version="0.1.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:8001", "http://127.0.0.1:8001"],
+    allow_origins=list(get_settings().cors_origins),
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Content-Type", "Range"],
     expose_headers=["Accept-Ranges", "Content-Range", "Content-Length"],

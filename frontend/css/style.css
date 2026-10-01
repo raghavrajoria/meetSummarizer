@@ -312,6 +312,11 @@ ul { margin: 0; padding: 0; list-style: none; }
 .m-row .cell    { font-size: var(--t-small); color: var(--text-2); font-variant-numeric: tabular-nums; }
 .m-row .chev    { color: var(--text-3); opacity: 0; transition: opacity .15s ease, transform .15s ease; }
 .m-row:hover .chev { opacity: 1; transform: translateX(2px); }
+.media-probe { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.summary-editor { width: 100%; min-height: 150px; resize: vertical; border: 1px solid var(--border-firm); border-radius: var(--r-sm); padding: var(--s3); background: var(--surface); font: inherit; line-height: 1.75; }
+.t-line.is-active { background: var(--muted-bg); }
+.row-hit { position: absolute; inset: 0; z-index: 0; }
+.row-actions, .row-actions a { position: relative; z-index: 1; }
 
 /* -------------------------------------------------------------- side panel */
 

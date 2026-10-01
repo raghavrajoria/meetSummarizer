@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
-import os
 import shutil
 import subprocess
 import sys
@@ -13,9 +13,17 @@ import time
 from pathlib import Path
 from typing import Any, Callable
 
+from .asr_provider import get_asr_provider, validate_asr_rows
+from .settings import get_settings
 
-ROOT = Path(__file__).resolve().parents[1]
-GPU_HINT = "run this stage on Kaggle, or pass --diar-csv"
+GPU_HINT = "run diarization on a GPU, or pass --diar-csv"
+CACHE_VERSION_FFPROBE = 1
+CACHE_VERSION_AUDIO = 1
+CACHE_VERSION_DIARIZATION = 1
+CACHE_VERSION_ASR = 1
+CACHE_VERSION_SUMMARY = 1
+CACHE_VERSION_SESSION = 1
+CACHE_VERSION_MEDIA_COPY = 1
 
 
 def _json_write(path: Path, value: Any) -> None:
@@ -26,6 +34,39 @@ def _json_write(path: Path, value: Any) -> None:
 def _json_read(path: Path) -> Any:
     with path.open(encoding="utf-8") as stream:
         return json.load(stream)
+
+
+def _input_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _stage_cache_key(input_files: list[Path], settings: dict[str, Any], cache_version: int) -> str:
+    inputs = [{"sha256": _input_sha256(path)} for path in input_files]
+    payload = {"cache_version": cache_version, "inputs": inputs, "settings": settings}
+    encoded = json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _cache_metadata_path(cache: Path) -> Path:
+    return cache.with_name(cache.name + ".cache.json")
+
+
+def _cache_matches(cache: Path, key: str) -> bool:
+    metadata = _cache_metadata_path(cache)
+    if not cache.exists() or not metadata.exists():
+        return False
+    try:
+        return _json_read(metadata).get("key") == key
+    except (OSError, AttributeError, json.JSONDecodeError):
+        return False
+
+
+def _write_cache_metadata(cache: Path, key: str) -> None:
+    _json_write(_cache_metadata_path(cache), {"key": key})
 
 
 def _stage(name: str, source: str, destination: str, started: float) -> None:
@@ -40,14 +81,20 @@ def _cached_json(
     source: str,
     force: bool,
     make: Callable[[], Any],
+    *,
+    input_files: list[Path],
+    settings: dict[str, Any],
+    cache_version: int,
 ) -> Any:
     started = time.monotonic()
-    if cache.exists() and not force:
+    key = _stage_cache_key(input_files, settings, cache_version)
+    if _cache_matches(cache, key) and not force:
         result = _json_read(cache)
         print(f"[{name}] cache hit")
     else:
         result = make()
         _json_write(cache, result)
+        _write_cache_metadata(cache, key)
     _stage(name, source, str(cache), started)
     return result
 
@@ -65,10 +112,11 @@ def _command(command: list[str], *, stage: str) -> subprocess.CompletedProcess[s
 
 def _probe(media: Path, out: Path, force: bool) -> dict[str, Any]:
     cache = out / "ffprobe.json"
+    settings = get_settings()
 
     def make() -> dict[str, Any]:
         result = _command(
-            ["ffprobe", "-v", "error", "-show_streams", "-show_format", "-of", "json", str(media)],
+            [settings.ffprobe_binary, "-v", "error", "-show_streams", "-show_format", "-of", "json", str(media)],
             stage="ffprobe",
         )
         probe = json.loads(result.stdout)
@@ -79,25 +127,33 @@ def _probe(media: Path, out: Path, force: bool) -> dict[str, Any]:
         video = [stream for stream in streams if stream.get("codec_type") == "video"]
         return {"kind": "video" if video else "audio", "streams": streams, "format": probe.get("format", {})}
 
-    return _cached_json("ffprobe", cache, str(media), force, make)
+    return _cached_json("ffprobe", cache, str(media), force, make,
+                        input_files=[media], settings={"binary": settings.ffprobe_binary,
+                        "args": ["-v", "error", "-show_streams", "-show_format", "-of", "json"]},
+                        cache_version=CACHE_VERSION_FFPROBE)
 
 
 def _extract_audio(media: Path, out: Path, force: bool) -> Path:
     wav = out / "audio_16k_mono.wav"
     cache = out / "audio.json"
+    app_settings = get_settings()
+    cache_settings = {"binary": app_settings.ffmpeg_binary, "args": ["-vn", "-ac", "1", "-ar", "16000",
+                       "-sample_fmt", "s16", "-c:a", "pcm_s16le"]}
+    cache_key = _stage_cache_key([media], cache_settings, CACHE_VERSION_AUDIO)
     started = time.monotonic()
-    if cache.exists() and wav.exists() and not force:
+    if wav.exists() and _cache_matches(cache, cache_key) and not force:
         print("[ffmpeg] cache hit")
         _stage("ffmpeg", str(media), str(wav), started)
         return wav
     _command(
         [
-            "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(media),
+            app_settings.ffmpeg_binary, "-hide_banner", "-loglevel", "error", "-y", "-i", str(media),
             "-vn", "-ac", "1", "-ar", "16000", "-sample_fmt", "s16", "-c:a", "pcm_s16le", str(wav),
         ],
         stage="ffmpeg audio extraction",
     )
     _json_write(cache, {"wav": wav.name, "sample_rate": 16000, "channels": 1, "codec": "pcm_s16le"})
+    _write_cache_metadata(cache, cache_key)
     _stage("ffmpeg", str(media), str(wav), started)
     return wav
 
@@ -128,11 +184,14 @@ def _gpu_diarize(wav: Path, csv_path: Path) -> list[dict[str, Any]]:
         from pyannote.audio import Pipeline
     except ImportError as exc:
         raise RuntimeError(f"Diarization dependencies are missing ({exc.name}); {GPU_HINT}") from exc
-    token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_TOKEN")
+    app_settings = get_settings()
+    token = app_settings.hf_token
     try:
-        pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization-3.1", token=token)
-        if torch.cuda.is_available():
+        pipeline = Pipeline.from_pretrained(app_settings.pyannote_model, token=token)
+        if app_settings.pyannote_device == "cuda" or (app_settings.pyannote_device == "auto" and torch.cuda.is_available()):
             pipeline.to(torch.device("cuda"))
+        elif app_settings.pyannote_device not in {"auto", "cpu"}:
+            raise RuntimeError("PYANNOTE_DEVICE must be auto, cpu, or cuda")
         annotation = pipeline(str(wav))
     except Exception as exc:
         raise RuntimeError(f"GPU diarization stage failed: {exc}") from exc
@@ -153,88 +212,53 @@ def _attendee_data(path: Path | None) -> tuple[Any, Any]:
     return value, None
 
 
-def _load_asr(path: Path) -> list[dict[str, Any]]:
-    value = _json_read(path)
-    if isinstance(value, dict):
-        value = value.get("asr", value.get("transcript", value.get("segments")))
-    if not isinstance(value, list):
-        raise RuntimeError(f"ASR JSON must contain an array (or an object with asr/transcript/segments): {path}")
-    normalized: list[dict[str, Any]] = []
-    for index, item in enumerate(value):
-        start = item.get("start", item.get("t", 0))
-        end = item.get("end", start)
-        speaker = str(item.get("speaker") or item.get("speaker_id") or "SPEAKER_00")
-        if not speaker.startswith("SPEAKER_"):
-            speaker = f"SPEAKER_{speaker}"
-        normalized.append({
-            **item,
-            "idx": item.get("idx", index),
-            "start": float(start),
-            "end": float(end),
-            "speaker": speaker,
-            "text": str(item.get("text", item.get("tx", "")) or ""),
-            "lang": item.get("lang", "unknown"),
-            "quality": item.get("quality", "accepted"),
-        })
-    return normalized
-
-
 def _asr_stage(wav: Path, diar_csv: Path, supplied: Path | None, out: Path, force: bool) -> list[dict[str, Any]]:
     cache = out / "asr.json"
+    app_settings = get_settings()
+    mode = "import" if supplied else app_settings.asr_mode
+    if mode == "import" and supplied is None:
+        raise RuntimeError("ASR_MODE=import requires --asr-json")
+    if mode == "remote" and not supplied and not app_settings.asr_service_url:
+        raise RuntimeError("ASR_SERVICE_URL is required when ASR_MODE=remote")
 
     def make() -> list[dict[str, Any]]:
-        if supplied:
-            return _load_asr(supplied)
-        try:
-            from .asr import IndicMeetASR
-            turns = IndicMeetASR.build_turns(str(diar_csv))
-            asr_engine = IndicMeetASR()
-            result = asr_engine.transcribe_turns(str(wav), turns, out_json=None)
-        except ImportError as exc:
-            raise RuntimeError(f"ASR dependencies are missing ({exc.name}); {GPU_HINT}") from exc
-        if not isinstance(result, list):
-            raise RuntimeError("ASR stage returned an invalid result; expected a list of segments")
-        return _load_asr_from_rows(result)
+        if mode == "local":
+            try:
+                from .asr import IndicMeetASR
+                turns = IndicMeetASR.build_turns(str(diar_csv))
+                asr_engine = IndicMeetASR()
+                result = asr_engine.transcribe_turns(str(wav), turns, out_json=None)
+            except ImportError as exc:
+                raise RuntimeError(f"ASR dependencies are missing ({exc.name})") from exc
+            if not isinstance(result, list):
+                raise RuntimeError("ASR stage returned an invalid result; expected a list of segments")
+            return validate_asr_rows(result)
+        provider = get_asr_provider(mode)
+        return provider.transcribe(wav, asr_json_path=supplied)
 
-    # If an ASR source file is supplied, preserve its normalized result in the session cache.
-    return _cached_json("ASR", cache, str(supplied or f"{wav} + {diar_csv}"), force, make)
-
-
-def _load_asr_from_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    normalized = []
-    for index, item in enumerate(rows):
-        normalized.append({
-            **item,
-            "idx": item.get("idx", index),
-            "start": float(item.get("start", 0)),
-            "end": float(item.get("end", item.get("start", 0))),
-            "speaker": str(item.get("speaker") or "SPEAKER_00"),
-            "text": str(item.get("text") or ""),
-            "lang": item.get("lang", "unknown"),
-            "quality": item.get("quality", "accepted"),
-        })
-    return normalized
-
-
-def _load_dotenv() -> None:
-    if os.environ.get("GROQ_API_KEY"):
-        return
-    env_file = ROOT / ".env"
-    if not env_file.exists():
-        return
-    for line in env_file.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        key, value = key.strip(), value.strip().strip("\"'")
-        if key == "GROQ_API_KEY" and value:
-            os.environ.setdefault(key, value)
+    source_files = [supplied] if supplied else ([wav, diar_csv] if mode == "local" else [wav])
+    stage_settings = {"mode": mode}
+    if mode == "remote":
+        stage_settings.update({"service_url": app_settings.asr_service_url,
+                               "timeout_seconds": app_settings.asr_service_timeout_seconds})
+    elif mode == "local":
+        stage_settings.update({"whisper_model": app_settings.whisper_model,
+                               "whisper_compute_type": app_settings.whisper_compute_type,
+                               "whisper_beam_size": app_settings.whisper_beam_size,
+                               "indicconformer_model": app_settings.indicconformer_model,
+                               "mms_lid_model": app_settings.mms_lid_model,
+                               "device": app_settings.asr_device,
+                               "decoder": app_settings.asr_indic_decoder,
+                               "max_indic_chunk_seconds": app_settings.asr_max_indic_chunk_seconds})
+    return _cached_json("ASR", cache, str(supplied or wav), force, make,
+                        input_files=source_files, settings=stage_settings,
+                        cache_version=CACHE_VERSION_ASR)
 
 
 def _summary_stage(asr: list[dict[str, Any]], attendees: Any, aliases: Any, supplied: Path | None,
                    out: Path, force: bool) -> dict[str, Any]:
     cache = out / "summary.json"
+    app_settings = get_settings()
 
     def make() -> dict[str, Any]:
         if supplied:
@@ -242,13 +266,23 @@ def _summary_stage(asr: list[dict[str, Any]], attendees: Any, aliases: Any, supp
             if not isinstance(value, dict):
                 raise RuntimeError(f"Dry summary JSON must be an object: {supplied}")
             return value
-        _load_dotenv()
-        if not os.environ.get("GROQ_API_KEY"):
+        if not app_settings.groq_api_key:
             raise RuntimeError("GROQ_API_KEY is missing; set it in the environment or project .env, or pass --dry-summary")
         from . import summary
         return summary.summarize(asr, attendees, aliases)
 
-    return _cached_json("summary", cache, str(supplied or "ASR + attendees + aliases"), force, make)
+    input_files = [out / "asr.json"]
+    if supplied:
+        input_files.append(supplied)
+    stage_settings = {"model": app_settings.groq_model, "endpoint": app_settings.groq_api_url,
+                      "temperature": app_settings.groq_temperature,
+                      "request_timeout_seconds": app_settings.groq_request_timeout_seconds,
+                      "max_wait_seconds": app_settings.groq_max_wait_seconds,
+                      "summary_cache_version": CACHE_VERSION_SUMMARY,
+                      "attendees": attendees, "aliases": aliases}
+    return _cached_json("summary", cache, str(supplied or "ASR + attendees + aliases"), force, make,
+                        input_files=input_files, settings=stage_settings,
+                        cache_version=CACHE_VERSION_SUMMARY)
 
 
 def _clock(seconds: float) -> str:
@@ -353,7 +387,7 @@ def _post_import(url: str, payload_path: Path, media_path: Path) -> dict[str, An
             url,
             data={"session_json": session_file.read()},
             files={"media": (media_path.name, media_file)},
-            timeout=120,
+            timeout=get_settings().import_request_timeout_seconds,
         )
     if not response.ok:
         raise RuntimeError(f"Backend import failed ({response.status_code}): {response.text[:500]}")
@@ -366,7 +400,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         raise RuntimeError(f"Media file does not exist: {media}")
     if not args.session_id or any(ch not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-" for ch in args.session_id):
         raise RuntimeError("session-id may contain only letters, digits, dot, underscore, and hyphen")
-    out = args.out.expanduser().resolve() if args.out else (ROOT / "data" / "sessions" / args.session_id).resolve()
+    out = args.out.expanduser().resolve() if args.out else (get_settings().data_dir / "sessions" / args.session_id).resolve()
     out.mkdir(parents=True, exist_ok=True)
     supplied_diar = args.diar_csv.expanduser().resolve() if args.diar_csv else None
     supplied_asr = args.asr_json.expanduser().resolve() if args.asr_json else None
@@ -387,7 +421,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         rows = _gpu_diarize(wav, diar_csv_path)
         return rows
 
-    diar = _cached_json("diarization", diar_cache, str(supplied_diar or wav), args.force, make_diar)
+    diar = _cached_json("diarization", diar_cache, str(supplied_diar or wav), args.force, make_diar,
+                        input_files=[supplied_diar or wav],
+                        settings={"mode": "import" if supplied_diar else "gpu",
+                                  "model": get_settings().pyannote_model,
+                                  "device": get_settings().pyannote_device},
+                        cache_version=CACHE_VERSION_DIARIZATION)
     if not diar_csv_path.exists():
         _write_diar_csv(diar_csv_path, diar)
 
@@ -397,10 +436,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
     destination_media = out / f"media{media.suffix.lower()}"
     media_cache = out / "media.json"
+    media_key = _stage_cache_key([media], {"stored_name": destination_media.name}, CACHE_VERSION_MEDIA_COPY)
     started = time.monotonic()
-    if not destination_media.exists() or args.force:
+    if not destination_media.exists() or not _cache_matches(media_cache, media_key) or args.force:
         shutil.copy2(media, destination_media)
         _json_write(media_cache, {"source": str(media), "stored": destination_media.name})
+        _write_cache_metadata(media_cache, media_key)
     else:
         print("[media-copy] cache hit")
     _stage("media-copy", str(media), str(destination_media), started)
@@ -412,6 +453,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         args.force,
         lambda: _session_payload(args.session_id, args.title or media.stem, probe["kind"], destination_media.name,
                                  asr, summary, attendees),
+        input_files=[diar_cache, out / "asr.json", out / "summary.json", destination_media],
+        settings={"session_id": args.session_id, "title": args.title or media.stem,
+                  "kind": probe["kind"], "media_name": destination_media.name, "attendees": attendees},
+        cache_version=CACHE_VERSION_SESSION,
     )
     if args.import_url:
         started = time.monotonic()

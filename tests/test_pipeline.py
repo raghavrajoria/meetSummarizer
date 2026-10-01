@@ -22,5 +22,6 @@ def test_attendees_and_aliases_are_read_and_passed_to_summary(tmp_path, monkeypa
     from indicmeet import summary
 
     monkeypatch.setattr(summary, "summarize", fake_summarize)
+    (tmp_path / "asr.json").write_text("[]", encoding="utf-8")
     pipeline._summary_stage([], attendees, aliases, None, tmp_path, False)
     assert captured == {"attendees": attendees, "aliases": aliases}
