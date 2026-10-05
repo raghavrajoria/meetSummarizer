@@ -16,7 +16,8 @@ def api_env(tmp_path, monkeypatch):
     from indicmeet.demo import FakeGroq
     monkeypatch.setattr(enrichment, "call_llm", FakeGroq())
     monkeypatch.setenv("API_TOKENS", "test-token,second-token")
-    monkeypatch.setenv("DEMO_MODE", "false")
+    monkeypatch.setenv("DEMO", "false")
+    monkeypatch.setenv("APP_ENV", "development")
     monkeypatch.setenv("MAX_UPLOAD_MB", "1")
     monkeypatch.setenv("WORKER_LEASE_SECONDS", "180")
     engine = create_engine(f"sqlite:///{(tmp_path / 'api.sqlite3').as_posix()}",

@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Literal, Protocol
 
-import requests
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError, model_validator
 
 from .settings import get_settings
@@ -88,36 +87,7 @@ class ImportAsrProvider:
         return canonicalize(validate_asr_file(asr_json_path))
 
 
-class RemoteAsrProvider:
-    def __init__(self, service_url: str | None = None, token: str | None = None, timeout: float | None = None):
-        settings = get_settings()
-        self.service_url = service_url or settings.asr_service_url
-        self.token = settings.asr_service_token if token is None else token
-        self.timeout = settings.asr_service_timeout_seconds if timeout is None else timeout
-        if not self.service_url:
-            raise ValueError("ASR_SERVICE_URL is required for remote ASR mode")
-
-    def transcribe(self, audio_path: Path, *, asr_json_path: Path | None = None, turns: list[dict] | None = None) -> list[dict[str, Any]]:
-        del asr_json_path
-        headers = {"Authorization": f"Bearer {self.token}"} if self.token else {}
-        try:
-            with audio_path.open("rb") as audio:
-                response = requests.post(
-                    self.service_url,
-                    files={"audio": (audio_path.name, audio, "audio/wav")},
-                    data={"turns": __import__("json").dumps(turns)} if turns is not None else {},
-                    headers=headers,
-                    timeout=self.timeout,
-                )
-            response.raise_for_status()
-        except requests.RequestException as exc:
-            raise RuntimeError("ASR service request failed") from exc
-        try:
-            payload = response.json()
-        except ValueError as exc:
-            raise AsrValidationError("ASR service returned invalid JSON") from exc
-        from .contract import canonicalize
-        return canonicalize(validate_asr_rows(payload))
+from .remote_asr import RemoteAsrProvider
 
 
 def get_asr_provider(mode: str | None = None) -> AsrProvider:

@@ -64,3 +64,38 @@ Options: Ignore playback / require a proprietary browser / encode the approved s
 Chosen: Add small VP8/Opus fixture; require actual playback and seek in the portable test; expose optional browser and fixture selectors.
 Why: The regression must verify decoded media without assuming the test browser ships licensed codecs.
 Reversible: yes
+
+## 2026-10-05 Owner-approved async ASR contract v2
+Context: Owner approved async hosted jobs, client-owned IDs, required model version and production refusal defaults in the finishing task.
+Options: Long synchronous calls / durable async submit-and-poll.
+Chosen: Persist submission intent, host IDs, deadline, endpoint and per-track checkpoints in DB jobs; bound polling; resume confirmed jobs; uncertain submission requires explicit retry. Host supports durable idempotency keys; explicit retry gets a new attempt key.
+Why: Worker restart or response loss must not silently submit expensive GPU work twice.
+Reversible: yes
+
+## 2026-10-05 Exact collision IDs and model provenance
+Context: Host IDs are not authoritative; millisecond rounding can collide even when exact starts differ.
+Options: Trust host IDs / documented client hashing with rounded grouping and full timestamp/text suffix.
+Chosen: SHA256 of compact UTF8 JSON [round(start,3),speaker],20hex; collision groups append12hex of default JSON [full_start,full_end,native_text]. Duplicate IDs fail. Require host asr.model_version; label historical imports legacy-import-unversioned; expose meeting model versions.
+Why: Reproducible stable reruns and honest provenance without inventing legacy model versions.
+Reversible: yes
+
+## 2026-10-05 Separate reference GPU service
+Context: Teammate needs implementable v2 host, but no GPU/model loading is allowed here.
+Options: Wait for teammate / ship an injected-model reference with disk state.
+Chosen: Separate asr_service images/environment, one in-process worker, atomic disk statuses/results and >=24h terminal retention, fake-model tests. CUDA/model build/runtime remains NOT VERIFIED.
+Why: Validate transport/queue/restart semantics without pretending to verify model accuracy or GPU compatibility.
+Reversible: yes
+
+## 2026-10-05 Explicit demo and fail-closed production
+Context: Earlier Compose enabled demo by default and included public local credentials.
+Options: Warn only / refuse unsafe startup and require explicit demo selection.
+Chosen: Default production/remote, validate startup before migrations; DEMO=true via selected .env.demo.example only; production template standalone with external DB/Redis/S3/ASR and no demo services.
+Why: Unconfigured deployment must not silently publish fake processing or demo credentials.
+Reversible: yes
+
+## 2026-10-05 Repository directory ownership
+Context: Owner requested eval/colab/deploy/scripts and ignore policy review.
+Options: Ignore all tooling / track source and exclude generated output.
+Chosen: eval/score_wer.py, deploy/ and scripts/ are source and remain tracked. eval/results and caches ignored; colab notebooks/generated output are local artifacts and remain ignored; approved tiny fixtures remain tracked. Add explicit colab output rules and ASR state ignore; .env.demo.example is an intentional public configuration exception.
+Why: A clone needs evaluation/deployment/check tooling, not retained media, credentials, model weights or notebook output.
+Reversible: yes

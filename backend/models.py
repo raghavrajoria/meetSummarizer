@@ -41,6 +41,8 @@ class Job(Base):
     lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     worker_token: Mapped[str | None] = mapped_column(String(32), nullable=True)
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    remote_asr_job_id: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    asr_requests: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     stage_timings: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
 
 class AccessSession(Base):

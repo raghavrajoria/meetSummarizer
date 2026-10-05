@@ -10,6 +10,7 @@ ISO_639_1 = frozenset('aa ab ae af ak am an ar as av ay az ba be bg bi bm bn bo 
 
 class AsrMetadata(BaseModel):
     model_config = ConfigDict(extra="allow")
+    model_version: str = Field(min_length=1)
     method: str = "import"
     whisper_lang: str | None = None
     whisper_lang_conf: float | None = Field(default=None, ge=0, le=1)
@@ -61,7 +62,7 @@ def canonicalize(data: Any) -> list[dict]:
         raise ValueError("Expected transcript array or segments/transcript object")
     result, seen = [], set()
     from collections import Counter
-    counts = Counter((seconds(row.get("start", row.get("t", row.get("timestamp", 0)))), str(row.get("speaker") or "SPEAKER_00")) for row in data)
+    counts = Counter((round(seconds(row.get("start", row.get("t", row.get("timestamp", 0)))),3), str(row.get("speaker") or "SPEAKER_00")) for row in data)
     for index, row in enumerate(data):
         if not isinstance(row, dict):
             raise ValueError(f"Segment {index} must be an object")
@@ -94,8 +95,8 @@ def canonicalize(data: Any) -> list[dict]:
             if not math.isfinite(start) or not math.isfinite(end):
                 raise ValueError("Nonfinite timestamp")
             identifier = stable_id(start, speaker)
-            if counts[(start, speaker)] > 1:
-                identifier += "_" + hashlib.sha256(json.dumps([end, text], ensure_ascii=False).encode()).hexdigest()[:12]
+            if counts[(round(start,3), speaker)] > 1:
+                identifier += "_" + hashlib.sha256(json.dumps([float(start), float(end), text], ensure_ascii=False).encode()).hexdigest()[:12]
             segment = {"segment_id": identifier, "start": start, "end": end,
                 "speaker": speaker, "speaker_name": row.get("speaker_name"), "language": language,
                 "text_native": text, "text_roman": row.get("text_roman", row.get("roman")),
@@ -113,6 +114,7 @@ def canonicalize(data: Any) -> list[dict]:
                 segment["asr"]["source_quality"] = "rejected"
             segment["quality"] = "review"
             if "unresolved_language" not in segment["reasons"]: segment["reasons"].append("unresolved_language")
+        segment["asr"].setdefault("model_version", "legacy-import-unversioned")
         segment = Segment.model_validate(segment).model_dump()
         if segment["segment_id"] in seen:
             raise ValueError("Duplicate canonical segment ID")
@@ -135,10 +137,10 @@ def reidentify(segments):
     from copy import deepcopy
     from collections import Counter
     output=deepcopy(segments)
-    counts=Counter((row["start"],row["speaker"]) for row in output)
+    counts=Counter((round(float(row["start"]),3),row["speaker"]) for row in output)
     for row in output:
         identifier=stable_id(row["start"],row["speaker"])
-        if counts[(row["start"],row["speaker"])]>1:
-            identifier += "_" + hashlib.sha256(json.dumps([row["end"],row["text_native"]],ensure_ascii=False).encode()).hexdigest()[:12]
+        if counts[(round(float(row["start"]),3),row["speaker"])]>1:
+            identifier += "_" + hashlib.sha256(json.dumps([float(row["start"]),float(row["end"]),row["text_native"]],ensure_ascii=False).encode()).hexdigest()[:12]
         row["segment_id"]=identifier
     return canonicalize(output)

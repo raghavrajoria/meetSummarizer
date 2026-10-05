@@ -84,14 +84,16 @@ One segment shape everywhere. If current code disagrees, the code changes, not t
   "text_english": null,
   "quality": "accepted",
   "reasons": [],
-  "asr": {"method": "indicconformer_hi", "whisper_lang": "hi", "whisper_lang_conf": 0.97,
+  "asr": {"model_version": "host-deployment-version", "method": "indicconformer_hi", "whisper_lang": "hi", "whisper_lang_conf": 0.97,
           "mms_lang": "hi", "mms_lang_conf": 0.99}
 }
 ```
 
 - `language`: ISO 639-1 (`en`, `hi`, `bn`, ...), plus owner-approved `mul` (mixed) and `und` (unknown) with quality="review" only (2026-10-05). Preserve the original label in `asr.source_language`; never auto-accept these markers. If a legacy source was rejected, preserve `asr.source_quality="rejected"` and exclude it from every LLM path even in relaxed review mode. `ur` is normalized to `hi` for routing but keep the raw value in `asr`.
 - `quality`: exactly `accepted | review | rejected`. `rejected` text never goes to the LLM. `review` is excluded from the summary when review mode is strict.
-- `segment_id` is deterministic (derived from start time and speaker), stable across reruns.
+- Hosted ASR uses the owner-approved async v2 contract in docs/ASR_API_CONTRACT.md: POST /transcribe -> 202 job_id, then GET /jobs/{job_id}. Client persists remote job IDs and resumes polling after restart. ASR_SERVICE_URL is a base URL.
+- `asr.model_version` is a required nonempty host deployment/version string, exposed in meeting metadata. Legacy stored imports are explicitly labeled legacy-import-unversioned.
+- `segment_id` is assigned by the client, ignoring host IDs, using the exact rounding/hash/collision algorithm documented in the v2 contract; stable across reruns.
 - Language confidence and transcription quality are different things. Do not merge them.
 
 ## 6. Known issues to confirm and fix first

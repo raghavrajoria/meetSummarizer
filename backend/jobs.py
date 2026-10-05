@@ -17,6 +17,7 @@ class Claim:
     meeting_id: str
     request_id: str
     worker_token: str
+    attempt: int = 0
 
 
 class JobQueue(Protocol):
@@ -41,6 +42,7 @@ def job_payload(job: Job) -> dict:
         "stage": job.stage, "progress": job.progress, "error": job.error,
         "created_at": stamp(job.created_at), "updated_at": stamp(job.updated_at),
         "started_at": stamp(job.started_at), "completed_at": stamp(job.completed_at),
+        "remote_asr_job_id": job.remote_asr_job_id,
         "attempts": job.attempts, "stage_timings": job.stage_timings,
     }
 
@@ -61,7 +63,11 @@ class DatabaseJobQueue:
     def claim_next(self):
         now = datetime.utcnow()
         with self.sessions() as db:
-            # A crashed worker's job becomes explicitly retryable, never double-run.
+            # An already-submitted remote job resumes polling under a new lease.
+            db.execute(update(Job).where(Job.status == "running", Job.lease_expires_at < now,
+                Job.remote_asr_job_id.is_not(None)).values(status="queued", worker_token=None,
+                lease_expires_at=None, updated_at=now))
+            # Jobs without a confirmed remote submission remain explicitly retryable.
             db.execute(update(Job).where(Job.status == "running", Job.lease_expires_at < now).values(
                 status="failed", error="worker lease expired", completed_at=now, updated_at=now,
                 worker_token=None, lease_expires_at=None))
@@ -75,7 +81,7 @@ class DatabaseJobQueue:
                     lease_expires_at=now + timedelta(seconds=self.lease_seconds)))
                 if changed.rowcount == 1:
                     job = db.get(Job, job_id)
-                    claim = Claim(job.id, job.meeting_id, job.request_id, token)
+                    claim = Claim(job.id, job.meeting_id, job.request_id, token, job.attempts)
                     db.commit()
                     return claim
                 db.rollback()
@@ -124,7 +130,10 @@ class DatabaseJobQueue:
             return result.rowcount == 1
 
     def retry(self, db, job, request_id):
+        retained={key:value for key,value in (job.asr_requests or {}).items() if value.get("status") not in {"failed","timeout","submitting","ambiguous"}}
+        retained_id=next((value.get("job_id") for value in retained.values() if value.get("job_id")),None)
         changed = db.execute(update(Job).where(Job.id == job.id, Job.status == "failed").values(
+            asr_requests=retained, remote_asr_job_id=retained_id,
             status="queued", stage="queued", progress=0, error=None, updated_at=datetime.utcnow(),
             started_at=None, completed_at=None, lease_expires_at=None, worker_token=None,
             request_id=request_id, stage_timings={}))
@@ -133,3 +142,18 @@ class DatabaseJobQueue:
         db.flush()
         db.refresh(job)
         return job
+
+    def load_asr(self,claim,scope):
+        with self.sessions() as db:
+            job=db.scalar(select(Job).where(*self._owned(claim)))
+            if job is None:raise LostClaim("ASR checkpoint claim lost")
+            return (job.asr_requests or {}).get(scope)
+
+    def save_asr(self,claim,scope,state):
+        with self.sessions() as db:
+            job=db.scalar(select(Job).where(*self._owned(claim)))
+            if job is None:raise LostClaim("ASR checkpoint claim lost")
+            values={**(job.asr_requests or {}),scope:dict(state)}
+            job.asr_requests=values
+            if state.get("job_id"):job.remote_asr_job_id=state["job_id"]
+            db.commit()

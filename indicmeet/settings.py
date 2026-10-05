@@ -53,6 +53,8 @@ class Settings:
     asr_service_url: str | None
     asr_service_token: str | None
     asr_service_timeout_seconds: float
+    asr_poll_interval_seconds: float
+    asr_job_timeout_seconds: float
     import_request_timeout_seconds: float
     groq_api_key: str | None
     groq_api_url: str
@@ -69,6 +71,7 @@ class Settings:
     retention_days: int
     strict_review: bool
     demo_mode: bool
+    app_env: str
 
 
 def get_settings() -> Settings:
@@ -78,7 +81,7 @@ def get_settings() -> Settings:
         "CORS_ORIGINS",
         "http://localhost:5173,http://127.0.0.1:5173,http://localhost:8001,http://127.0.0.1:8001",
     )
-    asr_mode = _value("ASR_MODE", "import").strip().lower()
+    asr_mode = _value("ASR_MODE", "import" if _value("DEMO", "false").lower()=="true" else "remote").strip().lower()
     if asr_mode not in {"import", "remote", "local"}:
         raise ValueError("ASR_MODE must be 'import', 'remote', or 'local'")
     return Settings(
@@ -103,6 +106,8 @@ def get_settings() -> Settings:
         asr_service_url=_value("ASR_SERVICE_URL", "") or None,
         asr_service_token=_value("ASR_SERVICE_TOKEN", "") or None,
         asr_service_timeout_seconds=float(_value("ASR_SERVICE_TIMEOUT_SECONDS", "120")),
+        asr_poll_interval_seconds=float(_value("ASR_POLL_INTERVAL_SECONDS", "2")),
+        asr_job_timeout_seconds=float(_value("ASR_JOB_TIMEOUT_SECONDS", "10800")),
         import_request_timeout_seconds=float(_value("IMPORT_REQUEST_TIMEOUT_SECONDS", "120")),
         groq_api_key=_value("GROQ_API_KEY", "") or None,
         groq_api_url=_value("GROQ_API_URL", "https://api.groq.com/openai/v1/chat/completions"),
@@ -118,5 +123,6 @@ def get_settings() -> Settings:
         worker_lease_seconds=float(_value("WORKER_LEASE_SECONDS", "180")),
         retention_days=int(_value("RETENTION_DAYS", "0")),
         strict_review=_value("STRICT_REVIEW", "true").lower() == "true",
-        demo_mode=_value("DEMO_MODE", "false").lower() == "true",
+        demo_mode=_value("DEMO", "false").lower() == "true",
+        app_env=_value("APP_ENV", "demo" if _value("DEMO", "false").lower()=="true" else "production").lower(),
     )

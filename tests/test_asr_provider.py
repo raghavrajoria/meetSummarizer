@@ -1,6 +1,4 @@
 import json
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from threading import Thread
 
 import pytest
 
@@ -67,35 +65,11 @@ def test_import_provider_rejects_missing_asr_file(tmp_path):
 
 
 def test_remote_provider_posts_audio_and_validates_response(tmp_path):
-    class Handler(BaseHTTPRequestHandler):
-        auth = None
-
-        def do_POST(self):
-            type(self).auth = self.headers.get("Authorization")
-            self.rfile.read(int(self.headers.get("Content-Length", "0")))
-            from indicmeet.contract import canonicalize
-            body = json.dumps(canonicalize([ROW])).encode("utf-8")
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
-
-        def log_message(self, *_args):
-            pass
-
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-    thread = Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    audio = tmp_path / "meeting.wav"
-    audio.write_bytes(b"audio fixture")
-    try:
-        provider = RemoteAsrProvider(
-            f"http://127.0.0.1:{server.server_port}/transcribe", token="test-token", timeout=2,
-        )
-        assert provider.transcribe(audio) == __import__("indicmeet.contract", fromlist=["canonicalize"]).canonicalize([ROW])
-        assert Handler.auth == "Bearer test-token"
-    finally:
-        server.shutdown()
-        thread.join(timeout=2)
-        server.server_close()
+    from scripts.fake_asr_server import fake_server
+    audio=tmp_path/"meeting.wav";audio.write_bytes(b"audio fixture")
+    with fake_server(row=ROW) as (url,handler):
+        provider=RemoteAsrProvider(url,token="test-token",timeout=2,poll_interval=.001)
+        rows=provider.transcribe(audio)
+        assert rows[0]["text_native"]==ROW["text"]
+        assert rows[0]["asr"]["model_version"]=="fake-asr-v2"
+        assert handler.auth=="Bearer test-token" and handler.posts==1

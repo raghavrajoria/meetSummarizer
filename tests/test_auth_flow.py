@@ -57,8 +57,8 @@ def test_summary_edit_migration_preserves_original(api_env,api_client):
 
 def test_compose_empty_users_value_allows_only_explicit_demo(api_env,monkeypatch):
     monkeypatch.setenv("AUTH_USERS_JSON", "")
-    monkeypatch.setenv("DEMO_MODE", "true")
+    monkeypatch.setenv("DEMO", "true")
     response=api_env.client.post("/auth/login",json={"username":"demo","password":"demo-password"})
     assert response.status_code==200
-    monkeypatch.setenv("DEMO_MODE", "false")
+    monkeypatch.setenv("DEMO", "false")
     assert api_env.client.post("/auth/login",json={"username":"demo","password":"demo-password"}).status_code==401

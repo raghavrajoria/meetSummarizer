@@ -1,4 +1,4 @@
-"""Explicit offline fake LLM. Only selected under DEMO_MODE or by tests."""
+"""Explicit offline fake LLM. Only selected under DEMO or by tests."""
 import json,re
 class FakeGroq:
     def __init__(self): self.prompts=[]
