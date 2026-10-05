@@ -88,3 +88,28 @@ def test_explicit_retry_clears_terminal_remote_checkpoint(api_env):
     next_claim=api_env.queue.claim_next()
     assert next_claim.attempt>claim.attempt
     assert api_env.queue.load_asr(next_claim,'audio.wav') is None
+
+def test_actual_worker_crash_then_restart_polls_same_host_job(api_env,tmp_path):
+    from backend.worker import Worker
+    audio=tmp_path/'audio.wav';audio.write_bytes(b'fixture')
+    with api_env.sessions() as db:
+        db.add(MeetingSession(id='worker-crash-asr',title='Resume real worker',payload={}));db.flush()
+        job=api_env.queue.enqueue(db,'worker-crash-asr','request');db.commit();jid=job.id
+    with fake_server() as (url,host):
+        def crash(seconds):raise SystemExit('simulated process death after accepted host submission')
+        first=RemoteAsrProvider(url,token='test-token',poll_interval=.005,job_timeout=5,sleep=crash)
+        def processor(provider):
+            return lambda record,store,stage:{'transcript':stage('asr',40,lambda:provider.transcribe(audio))}
+        with pytest.raises(SystemExit):Worker(api_env.queue,api_env.sessions,api_env.store,processor=processor(first)).run_once()
+        with api_env.sessions() as db:
+            job=db.get(Job,jid)
+            assert job.status=='running' and job.remote_asr_job_id=='fake-job-1'
+            job.lease_expires_at=datetime.utcnow()-timedelta(seconds=1);db.commit()
+        second=RemoteAsrProvider(url,token='test-token',poll_interval=.005,job_timeout=5)
+        assert Worker(api_env.queue,api_env.sessions,api_env.store,processor=processor(second)).run_once()
+        with api_env.sessions() as db:
+            job=db.get(Job,jid);record=db.get(MeetingSession,'worker-crash-asr')
+            assert job.status=='done' and job.progress==100 and job.attempts==2
+            assert job.asr_requests[audio.name]['status']=='done'
+            assert record.payload['transcript'][0]['asr']['model_version']=='fake-asr-v2'
+        assert host.posts==1 and host.polls==3
