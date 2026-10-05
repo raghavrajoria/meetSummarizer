@@ -4,41 +4,11 @@ import io
 import json
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
-
-from backend import main
-from backend.database import Base, get_db
-from backend.storage import LocalStorage
 
 
 @pytest.fixture
-def client(tmp_path):
-    engine = create_engine(
-        "sqlite://",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    TestingSession = sessionmaker(bind=engine, autoflush=False, autocommit=False)
-    Base.metadata.create_all(bind=engine)
-    store = LocalStorage(tmp_path / "media")
-
-    def test_db():
-        db = TestingSession()
-        try:
-            yield db
-        finally:
-            db.close()
-
-    main.app.dependency_overrides[get_db] = test_db
-    main.app.dependency_overrides[main.get_storage] = lambda: store
-    with TestClient(main.app) as test_client:
-        yield test_client
-    main.app.dependency_overrides.clear()
-    Base.metadata.drop_all(bind=engine)
-    engine.dispose()
+def client(api_client):
+    return api_client
 
 
 def import_payload(client, *, session_id="test-session", media=b"abcdef"):
