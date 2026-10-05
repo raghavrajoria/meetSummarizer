@@ -89,7 +89,7 @@ One segment shape everywhere. If current code disagrees, the code changes, not t
 }
 ```
 
-- `language`: ISO 639-1 (`en`, `hi`, `bn`, ...). `ur` is normalized to `hi` for routing but keep the raw value in `asr`.
+- `language`: ISO 639-1 (`en`, `hi`, `bn`, ...), plus owner-approved `mul` (mixed) and `und` (unknown) for review/rejected segments only (2026-10-05). Preserve the original label in `asr.source_language`; never auto-accept these markers. `ur` is normalized to `hi` for routing but keep the raw value in `asr`.
 - `quality`: exactly `accepted | review | rejected`. `rejected` text never goes to the LLM. `review` is excluded from the summary when review mode is strict.
 - `segment_id` is deterministic (derived from start time and speaker), stable across reruns.
 - Language confidence and transcription quality are different things. Do not merge them.

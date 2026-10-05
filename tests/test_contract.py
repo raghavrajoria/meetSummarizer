@@ -50,3 +50,14 @@ def test_real_fixture_collision_ids_survive_insertion():
     after=canonicalize([{**raw[0],"speaker":"INSERTED"}]+raw)
     assert [s["segment_id"] for s in before]==[s["segment_id"] for s in after[1:]]
     assert len({s["segment_id"] for s in before})==len(raw)
+
+
+def test_approved_mixed_unknown_markers_preserve_labels_and_force_review():
+    raw=[{"start":0.,"end":1.,"speaker":"A","text":"mixed text","language":"mixed","quality":"accepted"}, {"start":2.,"end":3.,"speaker":"B","text":"unknown text","quality":"accepted"}]
+    rows=canonicalize(raw)
+    assert [s["language"] for s in rows]==["mul","und"]
+    assert all(s["quality"]=="review" for s in rows)
+    assert rows[0]["asr"]["source_language"]=="mixed"
+    assert raw[0]["language"]=="mixed" and raw[0]["quality"]=="accepted"
+    with pytest.raises(ValueError):Segment.model_validate({**rows[0],"quality":"accepted"})
+    with pytest.raises(ValueError):Segment.model_validate({**rows[0],"language":"not-an-iso-code"})

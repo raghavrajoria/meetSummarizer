@@ -41,3 +41,10 @@ Options: Abandon stack test / build the requested MinIO from the pinned official
 Chosen: Build MinIO locally from the official annotated release tag object f19c534b9f457773dcd043d977433e1a71525c3b. S3 holds durable objects; API/worker staging volumes are independent. DB leases own jobs; Redis is an optional wakeup accelerator. Postgres advisory lock serializes migrations.
 Why: Exercises actual S3/DB/queue integration without a paid service or substitute third party receiving recordings. MinIO is local demo infrastructure; production requires team-provisioned supported storage.
 Reversible: yes
+
+## 2026-10-05 Owner-approved mixed/unknown language markers
+Context: Semantic validation found 23 real rows labeled mixed, which cannot be ISO 639-1.
+Options: Reject unresolved artifacts / permit mul and und only under review.
+Chosen: Owner explicitly approved mul/und review markers; preserve original labels in asr.source_language. Validate other values against the frozen official ISO table; never guess an accepted language from script.
+Why: Preserves stored evidence while enforcing the language gate; no silent routing guess.
+Reversible: yes
