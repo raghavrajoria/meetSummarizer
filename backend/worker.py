@@ -72,14 +72,21 @@ class Worker:
                 if record is None:
                     raise LostClaim("Meeting deleted")
                 db.expunge(record)
-            payload = self.processor(record, self.store, stage)
+            from indicmeet.remote_asr import RemoteContext,remote_context
+            remote_token=remote_context.set(RemoteContext(f"{claim.id}:{claim.attempt}",
+                lambda scope:self.queue.load_asr(claim,scope),
+                lambda scope,state:self.queue.save_asr(claim,scope,state),
+                lambda progress:self.queue.advance(claim,"asr_poll",20+int(progress*.2))))
+            try:payload = self.processor(record, self.store, stage)
+            finally:remote_context.reset(remote_token)
             self.queue.finish(claim, payload)
             logger.info("job_done job_id=%s", claim.id)
         except LostClaim:
             logger.warning("job_claim_lost job_id=%s", claim.id)
         except Exception as exc:
             # Exception strings can contain transcript text, URLs, or credentials.
-            self.queue.fail(claim, current_stage + " failed")
+            from indicmeet.remote_asr import AsrHostError
+            self.queue.fail(claim, current_stage + " failed" + (": " + str(exc) if isinstance(exc,AsrHostError) else ""))
             logger.error("job_failed job_id=%s stage=%s exception_type=%s", claim.id, current_stage, type(exc).__name__)
         finally:
             if record and record.payload.get("storage_prefix"):
@@ -93,6 +100,8 @@ class Worker:
 
 
 def main(argv=None):
+    from .config_guard import validate_app_configuration
+    validate_app_configuration()
     parser = argparse.ArgumentParser(description="IndicMeet database job worker")
     parser.add_argument("--once", action="store_true", help="Claim at most one job, then exit")
     args = parser.parse_args(argv)

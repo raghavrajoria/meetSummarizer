@@ -56,7 +56,7 @@ def process_meeting(record, store, stage):
                 recording, asr_json_path=store.path(files["asr_json"])))
         else:
             wav = stage("extract_audio", 20, lambda: extract_audio(recording, Path(temp) / "audio.wav"))
-            asr = stage("asr", 40, lambda: get_asr_provider(settings.asr_mode).transcribe(wav))
+            asr = stage("asr", 40, lambda: get_asr_provider(settings.asr_mode).transcribe(wav,turns=_read_diar_csv(store.path(files["diarization_csv"])) if "diarization_csv" in files else None))
         from indicmeet.contract import canonicalize
         asr = canonicalize(asr)
         if "diarization_csv" in files:
@@ -89,5 +89,5 @@ def process_meeting(record, store, stage):
             store.path(key).write_text(json.dumps(asr, ensure_ascii=False, indent=2), encoding="utf-8")
             store.flush(key)
         stage("transcript", 95, write_transcript)
-        return {**payload, "transcript_key": key, "group": record.group_name, "date": record.date,
+        return {**payload, "asr_model_versions":sorted({row["asr"]["model_version"] for row in asr}), "transcript_key": key, "group": record.group_name, "date": record.date,
                 "dateLabel": record.date or "Date not recorded"}

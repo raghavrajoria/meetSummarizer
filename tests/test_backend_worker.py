@@ -48,7 +48,7 @@ def test_without_asr_calls_configured_provider(api_client, api_env, asr_rows, mo
         return destination
     monkeypatch.setattr(processing, "extract_audio", extract)
     class Provider:
-        def transcribe(self, audio_path, *, asr_json_path=None):
+        def transcribe(self, audio_path, *, asr_json_path=None, turns=None):
             assert audio_path.read_bytes() == b"wav" and asr_json_path is None
             return asr_rows
     def provider(mode):

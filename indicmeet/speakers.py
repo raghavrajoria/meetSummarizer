@@ -63,13 +63,12 @@ def name_clusters(segments,source):
 
 def transcribe_tracks(tracks,provider,extract_audio,temporary,duration,names):
     """Tracks must share the recording time origin (silence padding before join)."""
-    from .contract import canonicalize,stable_id
+    from .contract import canonicalize,reidentify
     rows=[]
     for index,(identity,path) in enumerate(sorted(tracks.items())):
         wav=extract_audio(path,Path(temporary)/f"track-{index}.wav")
         segments=canonicalize(provider.transcribe(wav,turns=[{"start":0.,"end":duration,"speaker":identity}]))
         for row in segments:
             row["speaker"]=identity;row["speaker_name"]=names.get(identity)
-            row["segment_id"]=stable_id(row["start"],identity)
             rows.append(row)
-    return canonicalize(sorted(rows,key=lambda s:(s["start"],s["speaker"])))
+    return reidentify(sorted(rows,key=lambda s:(s["start"],s["speaker"])))
