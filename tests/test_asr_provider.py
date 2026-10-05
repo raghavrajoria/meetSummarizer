@@ -73,7 +73,8 @@ def test_remote_provider_posts_audio_and_validates_response(tmp_path):
         def do_POST(self):
             type(self).auth = self.headers.get("Authorization")
             self.rfile.read(int(self.headers.get("Content-Length", "0")))
-            body = json.dumps([ROW]).encode("utf-8")
+            from indicmeet.contract import canonicalize
+            body = json.dumps(canonicalize([ROW])).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))

@@ -72,11 +72,11 @@ def validate_asr_file(path: Path) -> list[dict[str, Any]]:
 
 
 class AsrProvider(Protocol):
-    def transcribe(self, audio_path: Path, *, asr_json_path: Path | None = None) -> list[dict[str, Any]]: ...
+    def transcribe(self, audio_path: Path, *, asr_json_path: Path | None = None, turns: list[dict] | None = None) -> list[dict[str, Any]]: ...
 
 
 class ImportAsrProvider:
-    def transcribe(self, audio_path: Path, *, asr_json_path: Path | None = None) -> list[dict[str, Any]]:
+    def transcribe(self, audio_path: Path, *, asr_json_path: Path | None = None, turns: list[dict] | None = None) -> list[dict[str, Any]]:
         del audio_path  # The uploaded recording is retained alongside its imported ASR rows.
         if asr_json_path is None:
             raise ValueError("Import ASR mode requires an asr.json file")
@@ -93,20 +93,21 @@ class RemoteAsrProvider:
         if not self.service_url:
             raise ValueError("ASR_SERVICE_URL is required for remote ASR mode")
 
-    def transcribe(self, audio_path: Path, *, asr_json_path: Path | None = None) -> list[dict[str, Any]]:
+    def transcribe(self, audio_path: Path, *, asr_json_path: Path | None = None, turns: list[dict] | None = None) -> list[dict[str, Any]]:
         del asr_json_path
         headers = {"Authorization": f"Bearer {self.token}"} if self.token else {}
         try:
             with audio_path.open("rb") as audio:
                 response = requests.post(
                     self.service_url,
-                    files={"audio": (audio_path.name, audio)},
+                    files={"audio": (audio_path.name, audio, "audio/wav")},
+                    data={"turns": __import__("json").dumps(turns)} if turns is not None else {},
                     headers=headers,
                     timeout=self.timeout,
                 )
             response.raise_for_status()
         except requests.RequestException as exc:
-            raise RuntimeError(f"ASR service request failed: {exc}") from exc
+            raise RuntimeError("ASR service request failed") from exc
         try:
             payload = response.json()
         except ValueError as exc:
@@ -121,4 +122,13 @@ def get_asr_provider(mode: str | None = None) -> AsrProvider:
         return ImportAsrProvider()
     if selected == "remote":
         return RemoteAsrProvider()
-    raise ValueError("ASR provider mode must be 'import' or 'remote'")
+    if selected == "local":
+        return LocalGpuAsrProvider()
+    raise ValueError("ASR provider mode must be import, remote, or local")
+
+class LocalGpuAsrProvider:
+    def transcribe(self,audio_path,*,asr_json_path=None,turns=None):
+        from .asr import IndicMeetASR
+        from .contract import canonicalize
+        if turns is None: raise ValueError("Local GPU provider requires speaker turns")
+        return canonicalize(IndicMeetASR().transcribe_turns(str(audio_path),turns))

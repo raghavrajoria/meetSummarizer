@@ -42,3 +42,11 @@ def test_strict_gate_and_rejected_exclusion():
     assert segments[0] not in review_gate(segments, True)
     assert segments[1] not in review_gate(segments, False)
     assert segments[0] in review_gate(segments, False)
+
+
+def test_real_fixture_collision_ids_survive_insertion():
+    raw=json.loads((ROOT/"fixtures/session.json").read_text(encoding="utf-8"))["segments"]
+    before=canonicalize(raw)
+    after=canonicalize([{**raw[0],"speaker":"INSERTED"}]+raw)
+    assert [s["segment_id"] for s in before]==[s["segment_id"] for s in after[1:]]
+    assert len({s["segment_id"] for s in before})==len(raw)

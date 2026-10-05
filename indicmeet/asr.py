@@ -14,6 +14,9 @@ class IndicMeetASR:
                    "ori": "or", "asm": "as"}
 
     def __init__(self, device=None, whisper_size=None, indic_decoder=None, max_indic_chunk_s=None):
+        settings = get_settings()
+        if not (device or settings.asr_device).startswith("cuda"):
+            raise RuntimeError("Large ASR requires the teammate GPU host; use ASR_MODE=remote or import")
         import numpy as np
         import pandas as pd
         import torch

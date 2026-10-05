@@ -106,4 +106,4 @@ def legacy_rows(segments: list[dict]) -> list[dict]:
         "reasons": s["reasons"], "duration": s["end"] - s["start"], **s["asr"]} for i, s in enumerate(segments)]
 
 def review_gate(segments: list[dict], strict: bool) -> list[dict]:
-    return [s for s in segments if s["quality"] != "rejected" and (not strict or s["quality"] == "accepted")]
+    return [s for s in segments if s["text_native"].strip() and s["quality"] != "rejected" and (not strict or s["quality"] == "accepted")]

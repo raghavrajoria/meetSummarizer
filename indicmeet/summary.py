@@ -294,7 +294,8 @@ def finish_action(a, segs, pos, canon, known, warn):
     else:
         a["due"] = None
 
-def _extract_legacy(asr, attendees=None, aliases=None, api_key=None, log=print, use_hints=True):
+def _extract_legacy(asr, attendees=None, aliases=None, api_key=None, log=print, use_hints=True, client=None):
+    call_llm = client or globals()["call_llm"]
     warnings, failed = [], []
     def warn(m): warnings.append(m); log("WARN:", m)
     key = api_key or _key()
@@ -405,7 +406,7 @@ def _extract_legacy(asr, attendees=None, aliases=None, api_key=None, log=print, 
     return res
 
 
-def summarize(asr, attendees=None, aliases=None, api_key=None, log=print, use_hints=True, strict_review=None):
+def summarize(asr, attendees=None, aliases=None, api_key=None, log=print, use_hints=True, strict_review=None, client=None):
     from .contract import canonicalize, legacy_rows, review_gate
     segments = canonicalize(asr)
     strict = get_settings().strict_review if strict_review is None else strict_review
@@ -413,7 +414,7 @@ def summarize(asr, attendees=None, aliases=None, api_key=None, log=print, use_hi
     if not admitted:
         return {"overview": "", "overview_claims": [], **{key: [] for key in FIELDS},
                 "warnings": ["No admissible transcript content"], "stats": {"segments": 0}}
-    result = _extract_legacy(legacy_rows(admitted), attendees, aliases, api_key, log, use_hints)
+    result = _extract_legacy(legacy_rows(admitted), attendees, aliases, api_key, log, use_hints, client)
     ids = {i: segment["segment_id"] for i, segment in enumerate(admitted)}
     for key in FIELDS:
         for item in result[key]:

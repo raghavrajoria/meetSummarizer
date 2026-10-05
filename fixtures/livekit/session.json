@@ -1,0 +1,20 @@
+{
+  "session_id": "fixture-livekit",
+  "recording_started_at_utc": "2026-10-05T10:00:00Z",
+  "recording_stopped_at_utc": "2026-10-05T10:00:10Z",
+  "recording_type": "video",
+  "participants": [
+    {
+      "identity": "alice",
+      "display_name": "Alice",
+      "joined_t_ms": 0,
+      "left_t_ms": 10000
+    },
+    {
+      "identity": "bob",
+      "display_name": "Bob",
+      "joined_t_ms": 0,
+      "left_t_ms": 10000
+    }
+  ]
+}

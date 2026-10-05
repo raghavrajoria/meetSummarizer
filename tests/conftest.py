@@ -12,6 +12,9 @@ def api_env(tmp_path, monkeypatch):
     from backend.jobs import DatabaseJobQueue
     from backend.storage import LocalStorage
 
+    from indicmeet import enrichment
+    from indicmeet.demo import FakeGroq
+    monkeypatch.setattr(enrichment, "call_llm", FakeGroq())
     monkeypatch.setenv("API_TOKENS", "test-token,second-token")
     monkeypatch.setenv("MAX_UPLOAD_MB", "1")
     monkeypatch.setenv("WORKER_LEASE_SECONDS", "180")

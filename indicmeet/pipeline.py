@@ -186,6 +186,8 @@ def _gpu_diarize(wav: Path, csv_path: Path) -> list[dict[str, Any]]:
         raise RuntimeError(f"Diarization dependencies are missing ({exc.name}); {GPU_HINT}") from exc
     app_settings = get_settings()
     token = app_settings.hf_token
+    if not torch.cuda.is_available():
+        raise RuntimeError("Diarization requires the teammate GPU host; pass --diar-csv")
     try:
         pipeline = Pipeline.from_pretrained(app_settings.pyannote_model, token=token)
         if app_settings.pyannote_device == "cuda" or (app_settings.pyannote_device == "auto" and torch.cuda.is_available()):
@@ -195,10 +197,8 @@ def _gpu_diarize(wav: Path, csv_path: Path) -> list[dict[str, Any]]:
         annotation = pipeline(str(wav))
     except Exception as exc:
         raise RuntimeError(f"GPU diarization stage failed: {exc}") from exc
-    rows = [
-        {"start": float(segment.start), "end": float(segment.end), "speaker": str(speaker), "idx": index}
-        for index, (segment, _track, speaker) in enumerate(annotation.itertracks(yield_label=True))
-    ]
+    from .speakers import pyannote_turns
+    rows = [{"start":t.start,"end":t.end,"speaker":t.speaker,"idx":i} for i,t in enumerate(pyannote_turns(annotation))]
     _write_diar_csv(csv_path, rows)
     return rows
 
@@ -278,7 +278,7 @@ def _summary_stage(asr: list[dict[str, Any]], attendees: Any, aliases: Any, supp
                       "temperature": app_settings.groq_temperature,
                       "request_timeout_seconds": app_settings.groq_request_timeout_seconds,
                       "max_wait_seconds": app_settings.groq_max_wait_seconds,
-                      "summary_cache_version": CACHE_VERSION_SUMMARY,
+                      "summary_cache_version": CACHE_VERSION_SUMMARY, "strict_review": app_settings.strict_review,
                       "attendees": attendees, "aliases": aliases}
     return _cached_json("summary", cache, str(supplied or "ASR + attendees + aliases"), force, make,
                         input_files=input_files, settings=stage_settings,
@@ -361,7 +361,7 @@ def _session_payload(session_id: str, title: str, kind: str, media_name: str,
         "participants": speakers,
         "speakers": speakers,
         "transcript": canonical,
-        "segments": segments,
+        "segments": canonical,
         "intelligence": intelligence,
     }
 
@@ -466,12 +466,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--dry-summary", type=Path)
     parser.add_argument("--out", type=Path)
     parser.add_argument("--import-url", help="POST the assembled session to this /sessions/import URL")
+    parser.add_argument("--skip-review", action="store_true", help="Exclude review segments from enrichment and summary")
     parser.add_argument("--force", action="store_true", help="rerun and replace cached stage outputs")
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if args.skip_review:
+        import os
+        os.environ["STRICT_REVIEW"] = "true"
     try:
         run(args)
     except RuntimeError as exc:

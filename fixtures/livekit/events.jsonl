@@ -1,0 +1,6 @@
+{"type": "recording_started", "t_ms": 0}
+{"type": "mic_on", "t_ms": 0, "identity": "bob"}
+{"type": "active_speakers", "t_ms": 0, "speakers": [{"identity": "alice", "level": 0.8}]}
+{"type": "active_speakers", "t_ms": 5000, "speakers": [{"identity": "bob", "level": 0.8}]}
+{"type": "active_speakers", "t_ms": 9000, "speakers": []}
+{"type": "recording_stopped", "t_ms": 10000}
