@@ -27,3 +27,5 @@ Production is the default. Empty values are absent. Exported environment overrid
 | E2E_BASE_URL, E2E_BROWSER_CHANNEL, E2E_MEDIA_FIXTURE |test frontend URL; optional installed chrome/edge channel; WebM default/original MP4 optional; never test destructive workflow against production meetings |
 
 Debug flags DEBUG/APP_DEBUG and FAKE_ASR/FAKE_LLM are not supported production features; setting them truthy fails startup. Strong secret checks reject known demo/default values, short or low-diversity values; they do not certify entropy. Use a secure secret generator. Infra connectivity/readiness and actual hosted model acceptance are still required after configuration passes.
+
+In .env, single-quote the entire AUTH_USERS_JSON value (and any secret containing dollar signs) so Compose preserves the dollar separators in PBKDF2 hashes. Exported environment values are passed literally. Do not print the resolved Compose configuration; use config --quiet or --services.
