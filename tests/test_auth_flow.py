@@ -43,3 +43,13 @@ def test_media_signature_range_expiry_and_saved_edit(api_env,api_client,monkeypa
     assert response["summary"]=="edited" and response["original_summary"]=="original"
     assert c.delete("/meetings/auth-test/summary").status_code==204
     assert c.get("/meetings/auth-test").json()["summary"]=="original"
+
+
+def test_summary_edit_migration_preserves_original(api_env,api_client):
+    from backend.models import MeetingSession,SummaryEdit
+    with api_env.sessions() as db:
+        db.add(MeetingSession(id="edits",title="Original",payload={"summary":"AI original","segments":[]}));db.commit()
+    assert api_client.put("/meetings/edits/summary",json={"text":"human edit"}).status_code==200
+    with api_env.sessions() as db:
+        assert db.get(MeetingSession,"edits").payload["summary"]=="AI original"
+        assert db.get(SummaryEdit,"edits").text=="human edit"

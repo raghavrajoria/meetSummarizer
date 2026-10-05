@@ -22,11 +22,11 @@ from .uploads import receive_upload, UploadError, UploadTooLarge
 from .media import probe_media, MediaValidationError
 from .processing import validate_sidecars
 from .maintenance import delete_meeting, MeetingBusy
-from .storage import LocalStorage, Storage
+from .storage import configured_storage, Storage
 from indicmeet.settings import get_settings
 
 
-storage: Storage = LocalStorage(MEDIA_DIR)
+storage: Storage = configured_storage(MEDIA_DIR)
 RANGE_PATTERN = re.compile(r"^bytes=(\d*)-(\d*)$")
 
 
@@ -157,6 +157,13 @@ async def import_session(
             raise HTTPException(status_code=400, detail="session_json is invalid JSON") from None
         if not isinstance(payload, dict) or not isinstance(payload.get("segments"), list):
             raise HTTPException(status_code=422, detail="session_json must be an object with a segments array")
+        from indicmeet.contract import canonicalize
+        try:
+            canonical = canonicalize(payload.get("transcript", payload["segments"]))
+        except ValueError:
+            raise HTTPException(422, "Invalid transcript segments") from None
+        payload["transcript"] = canonical
+        payload["segments"] = canonical
         session_id = str(payload.get("id") or "").strip()
         title = str(payload.get("title") or "").strip()
         if not session_id or len(session_id) > 160 or not title or len(title) > 500:
@@ -179,6 +186,7 @@ async def import_session(
         job = Job(meeting_id=session_id, request_id=request.state.request_id, status="done", stage="done",
                   progress=100, completed_at=now, stage_timings={})
         db.add(job)
+        media_store.flush(uploaded.prefix)
         db.commit()
         return frontend_payload(record, job)
     except BaseException:
@@ -233,7 +241,10 @@ async def create_meeting(request: Request, db: Session = Depends(get_db),
         db.add(record)
         db.flush()
         job = queue.enqueue(db, record.id, request.state.request_id)
+        media_store.flush(uploaded.prefix)
         db.commit()
+        from .services import notify
+        notify()
         return {**frontend_payload(record, job), "job": job_payload(job)}
     except BaseException:
         db.rollback()
@@ -268,6 +279,8 @@ def retry_job(job_id: str, request: Request, db: Session = Depends(get_db), queu
         db.rollback()
         raise HTTPException(status_code=409, detail="Only failed jobs can be retried") from None
     db.commit()
+    from .services import notify
+    notify()
     return job_payload(job)
 
 
@@ -318,6 +331,10 @@ def ready(db: Session = Depends(get_db), media_store: Storage = Depends(get_stor
             raise RuntimeError("ffprobe unavailable")
         with media_store.path(temporary_key).open("xb"):
             pass
+        from .services import dependencies_ready
+        if not dependencies_ready(media_store): raise RuntimeError("Dependency unavailable")
+        db.execute(select(AccessSession).limit(1))
+        db.execute(select(SummaryEdit).limit(1))
         return {"status": "ready"}
     except Exception:
         db.rollback()
@@ -403,3 +420,42 @@ def revert_summary(session_id:str,db:Session=Depends(get_db)):
     if row:
         db.delete(row); db.commit()
     return Response(status_code=204)
+
+
+@app.post("/livekit/completed",status_code=202)
+async def livekit_completed(request:Request,db:Session=Depends(get_db),media_store:Storage=Depends(get_storage),queue:JobQueue=Depends(get_queue)):
+    import os
+    from indicmeet.speakers import LiveKitEvents
+    body=await request.json()
+    session=body.get("session_id","")
+    if not isinstance(session,str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,120}",session):
+        raise HTTPException(422,"Invalid session_id")
+    if body.get("bucket")!=os.environ.get("S3_BUCKET","indicmeet") or body.get("prefix")!=f"meetings/{session}/":
+        raise HTTPException(422,"Bucket or prefix not configured")
+    key=body.get("recording_key","")
+    if key not in {f"meetings/{session}/recording.{suffix}" for suffix in ("mp4","m4a","mp3")}:
+        raise HTTPException(422,"Invalid recording key")
+    existing=db.get(MeetingSession,session)
+    if existing: return {"id":session,"job":job_payload(db.scalar(select(Job).where(Job.meeting_id==session)))}
+    prefix=body["prefix"].rstrip("/")
+    files={"recording":key,"livekit_session":prefix+"/session.json","livekit_events":prefix+"/events.jsonl"}
+    try:
+        source=LiveKitEvents(media_store.path(files["livekit_session"]),media_store.path(files["livekit_events"]))
+        source.turns()
+        if body.get("has_per_participant_tracks"):
+            tracks={}
+            for identity in source.names:
+                if not re.fullmatch(r"[A-Za-z0-9_@.-]{1,160}",identity) or identity.startswith("."):
+                    raise ValueError("Unsafe track identity")
+                track_key=f"{prefix}/tracks/{identity}.ogg"
+                media_store.size(track_key)
+                tracks[identity]=track_key
+            files["participant_tracks"]=tracks
+        info=await run_in_threadpool(checked_media,media_store.path(key))
+    except (ValueError,OSError,KeyError):
+        raise HTTPException(422,"Incomplete or invalid LiveKit artifacts") from None
+    record=MeetingSession(id=session,title=session,group_name="LiveKit",date=source.manifest["recording_started_at_utc"][:10],media_key=key,payload={**info,"source_files":files,"storage_prefix":prefix,"original_filename":"recording"})
+    db.add(record);db.flush();job=queue.enqueue(db,session,request.state.request_id);db.commit()
+    from .services import notify
+    notify()
+    return {"id":session,"job":job_payload(job)}

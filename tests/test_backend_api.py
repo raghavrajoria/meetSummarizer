@@ -33,7 +33,8 @@ def test_list_sessions_and_get_one(client):
     assert [item["id"] for item in listed] == [payload["id"]]
     detail = client.get(f"/sessions/{payload['id']}")
     assert detail.status_code == 200
-    assert detail.json()["segments"] == payload["segments"]
+    assert detail.json()["segments"][0]["text_native"] == payload["segments"][0]["tx"]
+    assert detail.json()["segments"][0]["segment_id"].startswith("seg_")
     assert client.get("/sessions/not-found").status_code == 404
 
 

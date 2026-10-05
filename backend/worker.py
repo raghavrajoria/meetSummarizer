@@ -13,7 +13,7 @@ from .logging_config import configure_logging, request_id
 from .maintenance import purge_expired
 from .models import MeetingSession
 from .processing import process_meeting
-from .storage import LocalStorage
+from .storage import configured_storage
 
 logger = logging.getLogger("indicmeet.worker")
 
@@ -51,12 +51,17 @@ class Worker:
             current_stage = name
             self.queue.advance(claim, name, progress)
             started = time.monotonic()
+            settings = get_settings()
+            logger.info("stage_started stage=%s input_id=%s model=%s device=%s progress=%s", name, claim.meeting_id, "fake" if settings.demo_mode else settings.asr_mode if name == "asr" else settings.groq_model if name in {"enrichment", "summary"} else "none", "remote" if name in {"asr","enrichment","summary"} else "cpu", progress)
+            outcome = "failed"
             try:
-                return action()
+                result = action()
+                outcome = "ok"
+                return result
             finally:
                 timings[name] = round(time.monotonic() - started, 6)
                 self.queue.advance(claim, name, progress, timings)
-                logger.info("stage_completed stage=%s seconds=%.6f", name, timings[name])
+                logger.info("stage_finished stage=%s seconds=%.6f outcome=%s progress=%s", name, timings[name], outcome, progress)
 
         try:
             logger.info("job_running job_id=%s", claim.id)
@@ -89,11 +94,14 @@ def main(argv=None):
     args = parser.parse_args(argv)
     configure_logging()
     settings = get_settings()
-    store = LocalStorage(MEDIA_DIR)
+    store = configured_storage(MEDIA_DIR)
     worker = Worker(DatabaseJobQueue(lease_seconds=settings.worker_lease_seconds), SessionLocal, store)
+    from .worker_health import start_health, pulse
+    if not args.once: start_health(store)
     last_retention = 0.0
     try:
         while True:
+            pulse()
             worked = worker.run_once()
             if time.monotonic() - last_retention >= 3600:
                 purge_expired(SessionLocal, store, settings.retention_days)
@@ -101,7 +109,8 @@ def main(argv=None):
             if args.once:
                 return 0
             if not worked:
-                time.sleep(max(0.1, settings.worker_poll_seconds))
+                from .services import wait
+                wait(settings.worker_poll_seconds)
     except KeyboardInterrupt:
         return 0
     except Exception as exc:
