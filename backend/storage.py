@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import mimetypes
+import shutil
 import uuid
 from pathlib import Path
 from typing import BinaryIO, Iterator, Protocol
 
 
 class Storage(Protocol):
+    def path(self, key: str) -> Path: ...
+    def delete(self, key: str) -> None: ...
     def save(self, source: BinaryIO, filename: str) -> str: ...
     def size(self, key: str) -> int: ...
     def content_type(self, key: str) -> str: ...
@@ -24,9 +27,19 @@ class LocalStorage:
 
     def _path(self, key: str) -> Path:
         candidate = (self.root / key).resolve()
-        if not candidate.is_relative_to(self.root):
+        if candidate == self.root or not candidate.is_relative_to(self.root):
             raise ValueError("Invalid storage key")
         return candidate
+
+    def path(self, key: str) -> Path:
+        return self._path(key)
+
+    def delete(self, key: str) -> None:
+        path = self._path(key)
+        if path.is_dir():
+            shutil.rmtree(path)
+        else:
+            path.unlink(missing_ok=True)
 
     def save(self, source: BinaryIO, filename: str) -> str:
         suffix = Path(filename).suffix.lower()

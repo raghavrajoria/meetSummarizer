@@ -61,6 +61,12 @@ class Settings:
     groq_request_timeout_seconds: float
     groq_max_wait_seconds: int
     llm_cache_dir: Path
+    api_tokens: tuple[str, ...]
+    max_upload_mb: float
+    media_timeout_seconds: float
+    worker_poll_seconds: float
+    worker_lease_seconds: float
+    retention_days: int
 
 
 def get_settings() -> Settings:
@@ -103,4 +109,10 @@ def get_settings() -> Settings:
         groq_request_timeout_seconds=float(_value("GROQ_REQUEST_TIMEOUT_SECONDS", "120")),
         groq_max_wait_seconds=int(_value("GROQ_MAX_WAIT_SECONDS", "120")),
         llm_cache_dir=Path(_value("INDICMEET_LLM_CACHE", str(PROJECT_ROOT / "llm_cache"))).expanduser(),
+        api_tokens=tuple(token.strip() for token in _value("API_TOKENS", "").split(",") if token.strip()),
+        max_upload_mb=float(_value("MAX_UPLOAD_MB", "512")),
+        media_timeout_seconds=float(_value("MEDIA_TIMEOUT_SECONDS", "300")),
+        worker_poll_seconds=float(_value("WORKER_POLL_SECONDS", "2")),
+        worker_lease_seconds=float(_value("WORKER_LEASE_SECONDS", "180")),
+        retention_days=int(_value("RETENTION_DAYS", "0")),
     )
