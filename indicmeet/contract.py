@@ -36,8 +36,8 @@ class Segment(BaseModel):
     def time_order(self):
         if self.language not in ISO_639_1 | {"mul", "und"}:
             raise ValueError("Language must be ISO 639-1, mul or und")
-        if self.language in {"mul", "und"} and self.quality == "accepted":
-            raise ValueError("mul/und cannot be accepted without language review")
+        if self.language in {"mul", "und"} and self.quality != "review":
+            raise ValueError("mul/und must have quality=review")
         if self.end < self.start:
             raise ValueError("end precedes start")
         return self
@@ -109,7 +109,9 @@ def canonicalize(data: Any) -> list[dict]:
             segment["asr"]["source_language"] = raw_language
         segment["language"] = language
         if language in {"mul", "und"}:
-            segment["quality"] = "rejected" if segment["quality"] == "rejected" else "review"
+            if segment["quality"] == "rejected":
+                segment["asr"]["source_quality"] = "rejected"
+            segment["quality"] = "review"
             if "unresolved_language" not in segment["reasons"]: segment["reasons"].append("unresolved_language")
         segment = Segment.model_validate(segment).model_dump()
         if segment["segment_id"] in seen:
@@ -125,4 +127,4 @@ def legacy_rows(segments: list[dict]) -> list[dict]:
         "reasons": s["reasons"], "duration": s["end"] - s["start"], **s["asr"]} for i, s in enumerate(segments)]
 
 def review_gate(segments: list[dict], strict: bool) -> list[dict]:
-    return [s for s in segments if s["text_native"].strip() and s["quality"] != "rejected" and (not strict or s["quality"] == "accepted")]
+    return [s for s in segments if s["text_native"].strip() and s["quality"] != "rejected" and s["asr"].get("source_quality") != "rejected" and (not strict or s["quality"] == "accepted")]

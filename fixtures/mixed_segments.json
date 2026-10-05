@@ -1,0 +1,52 @@
+[
+  {
+    "segment_id": "seg_0dcd73242d5442a88626",
+    "start": 0.0,
+    "end": 11.0,
+    "speaker": "SPEAKER_01",
+    "speaker_name": null,
+    "language": "mul",
+    "text_native": "রাহুল বর্মা! ২৫টা স্মার্ট একাউন্ট, ১০টা সিওর কভার, ১০টা হেল্থ কভার! বাংলা ভাষাতে বলে দিলাম!",
+    "text_roman": null,
+    "text_english": "Rahul Verma! 25 Smart accounts, 10 Sure Covers, 10 Health Covers! I told you in Bengali!",
+    "quality": "review",
+    "reasons": [
+      "language_outside_allowlist:mixed",
+      "unresolved_language"
+    ],
+    "asr": {
+      "method": "import",
+      "whisper_lang": null,
+      "whisper_lang_conf": null,
+      "mms_lang": null,
+      "mms_lang_conf": null,
+      "confidence": null,
+      "source_language": "mixed"
+    }
+  },
+  {
+    "segment_id": "seg_e55785e5d1c6bfd5c590",
+    "start": 11.0,
+    "end": 12.0,
+    "speaker": "SPEAKER_01",
+    "speaker_name": null,
+    "language": "mul",
+    "text_native": "বিশ্বনাথ দে, বিশ্বনাথ দে আমি তোকে একটা কথা বলে দিচ্ছি। আমি তোকে আর নেক্সট ২০টা দিন দেবো at UNB। বিশ্বনাথ দে, ছবি দেখা, থোবা দেখা! থোবা দেখা!",
+    "text_roman": null,
+    "text_english": "Bishwanath Dey, Bishwanath Dey, let me tell you one thing. I will give you just 20 more days at UNB. Bishwanath Dey, show your picture, show your face! Show your face!",
+    "quality": "review",
+    "reasons": [
+      "language_outside_allowlist:mixed",
+      "unresolved_language"
+    ],
+    "asr": {
+      "method": "import",
+      "whisper_lang": null,
+      "whisper_lang_conf": null,
+      "mms_lang": null,
+      "mms_lang_conf": null,
+      "confidence": null,
+      "source_language": "mixed"
+    }
+  }
+]

@@ -1,2 +1,4 @@
 # Approved test/demo fixtures
 demo.mp4 is a ten-second, low-resolution extract of the existing group-discussion fixture (under 5 MB). demo_asr.json is stored fixture text for testing transport and review UI; demo mode is not an ASR accuracy benchmark. Ground-truth subsets are trimmed from the existing references and retain their soft/machine-generated provenance. Full references and media remain unchanged under data/ground_truth and the local dataset directories. They are intentionally not published; obtain them from the project owner. No production path implicitly uses these fixtures.
+
+Mixed-language regression: ground_truth/mixed_rows.json preserves two actual mixed rows from the existing Bengali soft reference; mixed_segments.json is their canonical review adaptation for browser testing. They are not ASR accuracy ground truth.

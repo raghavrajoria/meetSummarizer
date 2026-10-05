@@ -45,3 +45,27 @@ def test_empty_and_repetition_quality_gate_without_loading_models():
     repeated=engine._finalize("yes "*50, "en", "whisper", 2., [])
     assert empty["quality"]=="rejected"
     assert repeated["quality"] in {"review","rejected"}
+
+
+def test_real_mixed_rows_stay_visible_but_never_enter_strict_llm():
+    root=Path(__file__).parents[1]
+    raw=json.loads((root/"fixtures/ground_truth/mixed_rows.json").read_text(encoding="utf-8"))
+    assert all(row["language"]=="mixed" for row in raw)
+    rows=canonicalize(raw)
+    assert all(s["language"]=="mul" and s["quality"]=="review" and s["asr"]["source_language"]=="mixed" for s in rows)
+    accepted=json.loads((root/"fixtures/demo_asr.json").read_text(encoding="utf-8"))[0]
+    accepted["speaker"]="ACCEPTED_CONTROL"
+    control=canonicalize([accepted])[0]
+    client=FakeGroq();enriched=enrich([control]+rows,client=client,strict=True)
+    result=summarize(enriched,api_key="test",strict_review=True,client=client,log=lambda *a:None)
+    prompts="\n".join(text for _,text in client.prompts)
+    assert all(row["text"] not in prompts for row in raw)
+    assert len(enriched)==len(rows)+1
+    assert result["overview_claims"] and all(c["source_segment_ids"]==[control["segment_id"]] for c in result["overview_claims"])
+
+def test_unresolved_original_rejection_remains_blocked_in_relaxed_review():
+    from indicmeet.contract import review_gate
+    rows=canonicalize([{"start":0.,"end":1.,"speaker":"X","text":"must stay blocked","lang":"unknown","quality":"rejected"}])
+    assert rows[0]["language"]=="und" and rows[0]["quality"]=="review"
+    assert rows[0]["asr"]["source_quality"]=="rejected"
+    assert review_gate(rows,False)==[]

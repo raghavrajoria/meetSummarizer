@@ -2,6 +2,7 @@
 import os,pathlib,subprocess,sys,tempfile,time
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 def main():
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     folder=pathlib.Path(tempfile.mkdtemp(prefix="indicmeet-release-proof-"));clone=folder/"repo"
     logdir=folder/"evidence";logdir.mkdir()
     environment=dict(os.environ)

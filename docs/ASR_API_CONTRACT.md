@@ -7,4 +7,6 @@ Request: multipart/form-data; `audio` binary 16 kHz mono PCM WAV; optional `turn
 
 The client also accepts legacy stored ASR via a separate import adapter. New service responses must be canonical. Fake-server tests run offline. Configure the service URL and token on API/worker, keep the GPU service out of these containers.
 
-Owner-approved language extension (2026-10-05): mul=mixed and und=unknown are valid only for review/rejected rows. Preserve legacy label in asr.source_language. ISO 639-1 list is frozen from the Library of Congress table https://www.loc.gov/standards/iso639-2/ISO-639-2_utf-8.txt. Unknown labels never become silently accepted English/Hindi.
+Owner-approved language extension (2026-10-05): mul=mixed and und=unknown are valid only with quality=review. Preserve legacy label in asr.source_language. ISO 639-1 list is frozen from the Library of Congress table https://www.loc.gov/standards/iso639-2/ISO-639-2_utf-8.txt. Unknown labels never become silently accepted English/Hindi.
+
+Source-rejected unresolved imports keep asr.source_quality=rejected and remain blocked from all LLM paths even with relaxed review.

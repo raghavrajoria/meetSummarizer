@@ -48,3 +48,5 @@ Options: Reject unresolved artifacts / permit mul and und only under review.
 Chosen: Owner explicitly approved mul/und review markers; preserve original labels in asr.source_language. Validate other values against the frozen official ISO table; never guess an accepted language from script.
 Why: Preserves stored evidence while enforcing the language gate; no silent routing guess.
 Reversible: yes
+
+Owner clarification: every mul/und row is review; original rejected status is retained in asr.source_quality and blocked even in relaxed mode. Real mixed reference rows are tracked and exercise LLM exclusion and browser visibility. The frontend displays the language code and review badge directly.

@@ -50,3 +50,28 @@ test("demo login upload progress playback edit reload download and delete", asyn
   await page.goto("/meetings.html");await expect(page).toHaveURL(/index.html/);
   expect(errors).toEqual([]);
 });
+
+
+test("real mixed transcript rows render mul und review badges without hiding text",async({page})=>{
+  const errors=[];page.on("pageerror",e=>errors.push(e.message));
+  const login=await page.request.post("/api/auth/login",{data:{username:"demo",password:"demo-password"}});
+  expect(login.ok()).toBe(true);const token=(await login.json()).access_token;
+  const headers={Authorization:`Bearer ${token}`};
+  const rows=JSON.parse(await readFile(path.resolve("../fixtures/mixed_segments.json"),"utf8"));
+  rows[1].language="und";
+  const mid=`mixed-ui-${Date.now()}`;
+  const clip=await readFile(path.resolve("../fixtures/demo.mp4"));
+  const created=await page.request.post("/api/sessions/import",{headers,multipart:{session_json:JSON.stringify({id:mid,title:"Mixed review regression",segments:rows}),media:{name:"demo.mp4",mimeType:"video/mp4",buffer:clip}}});
+  expect(created.status()).toBe(201);
+  await page.goto("/index.html");await page.evaluate(t=>sessionStorage.setItem("access_token",t),token);
+  await page.goto(`/meeting.html?id=${mid}`);
+  await expect(page.locator("article.t-line")).toHaveCount(2);
+  for(let i=0;i<2;i++){
+    const line=page.locator("article.t-line").nth(i);
+    await expect(line.locator(".quality-badge")).toHaveText("review");
+    await expect(line.locator(".lang-pill")).toHaveText(i===0?"mul":"und");
+    await expect(line.locator("p")).toHaveText(rows[i].text_native);
+  }
+  expect(errors).toEqual([]);
+  expect((await page.request.delete(`/api/meetings/${mid}`,{headers})).status()).toBe(204);
+});
