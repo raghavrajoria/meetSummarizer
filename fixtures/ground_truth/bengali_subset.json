@@ -1,0 +1,26 @@
+{
+  "provenance": "Trimmed existing reference; machine-generated text is not human ground truth. Originals preserved in data/ground_truth.",
+  "segments": [
+    {
+      "timestamp": "00:00",
+      "speaker": "SPEAKER_01",
+      "language": "mixed",
+      "text": "রাহুল বর্মা! ২৫টা স্মার্ট একাউন্ট, ১০টা সিওর কভার, ১০টা হেল্থ কভার! বাংলা ভাষাতে বলে দিলাম!",
+      "text_english": "Rahul Verma! 25 Smart accounts, 10 Sure Covers, 10 Health Covers! I told you in Bengali!"
+    },
+    {
+      "timestamp": "00:10",
+      "speaker": "SPEAKER_02",
+      "language": "hi",
+      "text": "हो जाएगा।",
+      "text_english": "It will be done."
+    },
+    {
+      "timestamp": "00:11",
+      "speaker": "SPEAKER_01",
+      "language": "mixed",
+      "text": "বিশ্বনাথ দে, বিশ্বনাথ দে আমি তোকে একটা কথা বলে দিচ্ছি। আমি তোকে আর নেক্সট ২০টা দিন দেবো at UNB। বিশ্বনাথ দে, ছবি দেখা, থোবা দেখা! থোবা দেখা!",
+      "text_english": "Bishwanath Dey, Bishwanath Dey, let me tell you one thing. I will give you just 20 more days at UNB. Bishwanath Dey, show your picture, show your face! Show your face!"
+    }
+  ]
+}

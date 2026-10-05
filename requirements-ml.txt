@@ -1,0 +1,13 @@
+# Separate GPU service/Kaggle environment: Python 3.11, NOT the API environment.
+# Choose CUDA wheels using the PyTorch vendor index appropriate to the host.
+torch==2.8.0
+torchaudio==2.8.0
+transformers==4.57.6
+faster-whisper==1.2.1
+pyannote.audio==4.0.1
+numpy==2.2.6
+pandas==2.3.3
+huggingface-hub==0.36.2
+silero-vad==6.0.0
+onnxruntime==1.22.1
+soundfile==0.13.1

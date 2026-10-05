@@ -15,3 +15,10 @@ __pycache__/
 .pytest_cache/
 node_modules/
 dist/
+
+.venv-*/
+.env.*
+!.env.example
+playwright-report/
+test-results/
+!fixtures/demo.mp4

@@ -1,0 +1,38 @@
+[
+  {
+    "idx": 0,
+    "start": 0.0,
+    "end": 5.0,
+    "speaker": "SPEAKER_01",
+    "text": "These would be the five major parameters, all of equal importance.",
+    "lang": "en",
+    "quality": "accepted",
+    "reasons": [],
+    "method": "stored_demo",
+    "duration": 5.0
+  },
+  {
+    "idx": 1,
+    "start": 5.0,
+    "end": 10.0,
+    "speaker": "SPEAKER_11",
+    "text": "So guys, the topic for the discussion today will be skills or degree. Is degree just a myth?",
+    "lang": "en",
+    "quality": "accepted",
+    "reasons": [],
+    "method": "stored_demo",
+    "duration": 5.0
+  },
+  {
+    "idx": 2,
+    "start": 8.0,
+    "end": 10.0,
+    "speaker": "SPEAKER_01",
+    "text": "But if the same thing happens in the actual GD, how would you manage? So just don't try to, you know, craft the statement in an absolutely proper way. Direction दिया group को, right? तो एक नया point लेकर आई, direction दिया, और दो बार बोला आपने, पर दोनों बार it was absolutely controlled and if you introduce the idea, if you're able to describe it a bit more.",
+    "lang": "hi",
+    "quality": "accepted",
+    "reasons": [],
+    "method": "stored_demo",
+    "duration": 2.0
+  }
+]

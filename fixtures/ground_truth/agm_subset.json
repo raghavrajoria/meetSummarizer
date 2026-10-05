@@ -1,0 +1,26 @@
+{
+  "provenance": "Trimmed existing reference; machine-generated text is not human ground truth. Originals preserved in data/ground_truth.",
+  "segments": [
+    {
+      "timestamp": "00:04",
+      "speaker": "SPEAKER_01",
+      "language": "en",
+      "text": "I would now come to the next part of our AGM program and I would request those members who registered themselves as speakers, members, to ask their questions.",
+      "text_english": "I would now come to the next part of our AGM program and I would request those members who registered themselves as speakers, members, to ask their questions."
+    },
+    {
+      "timestamp": "00:16",
+      "speaker": "SPEAKER_01",
+      "language": "en",
+      "text": "Once your name has been called out by the moderator, kindly confirm your name and proceed with your question.",
+      "text_english": "Once your name has been called out by the moderator, kindly confirm your name and proceed with your question."
+    },
+    {
+      "timestamp": "00:23",
+      "speaker": "SPEAKER_01",
+      "language": "en",
+      "text": "In case on calling out the name of a speaker member, if he or she is not available for any reason or his or her voice is not audible, then after pausing for a while, the name of the next speaker shall be called out.",
+      "text_english": "In case on calling out the name of a speaker member, if he or she is not available for any reason or his or her voice is not audible, then after pausing for a while, the name of the next speaker shall be called out."
+    }
+  ]
+}
