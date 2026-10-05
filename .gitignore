@@ -24,3 +24,12 @@ test-results/
 !fixtures/demo.mp4
 
 .ruff_cache/
+
+!.env.demo.example
+asr_state/
+colab/output/
+colab/outputs/
+colab/*.json
+colab/*.csv
+colab/*.log
+eval/results/

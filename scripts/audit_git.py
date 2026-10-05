@@ -21,7 +21,7 @@ def main():
             except zipfile.BadZipFile:pass
         if any(re.search(pattern,content) for pattern in patterns for content in contents):hits.append((oid,path))
     tracked=git("ls-files").decode().splitlines()
-    suspicious=[p for p in tracked if re.search(r"(^|/)(?:\.env(?:\.|$)|node_modules/|\.venv/|__pycache__/|output/)|\.(?:safetensors|ckpt|pt|pth|onnx)$",p) and p!=".env.example"]
+    suspicious=[p for p in tracked if re.search(r"(^|/)(?:\.env(?:\.|$)|node_modules/|\.venv/|__pycache__/|output/)|\.(?:safetensors|ckpt|pt|pth|onnx)$",p) and p not in {".env.example",".env.demo.example"}]
     print(f"HISTORY blobs={blobs} credential_pattern_hits={len(hits)} blobs_over_5MB={len(large)}")
     print(f"TRACKED suspicious_files={len(suspicious)}")
     for oid,path in hits:print("CREDENTIAL MATCH (value redacted)",oid,path)

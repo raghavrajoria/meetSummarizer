@@ -6,7 +6,7 @@ def main():
     folder=pathlib.Path(tempfile.mkdtemp(prefix="indicmeet-release-proof-"));clone=folder/"repo"
     logdir=folder/"evidence";logdir.mkdir()
     environment=dict(os.environ)
-    environment.update(DEMO_MODE="true",GROQ_API_KEY="",HF_TOKEN="",HUGGINGFACE_TOKEN="",API_TOKENS="",AUTH_USERS_JSON="",MEDIA_SIGNING_SECRET="local-proof-signing-secret-at-least-32-characters",API_PORT="8017",WORKER_PORT="8097",FRONTEND_PORT="8087",E2E_BASE_URL="http://127.0.0.1:8087")
+    environment.update(DEMO="true",APP_ENV="demo",DEMO_MODE="false",ASR_MODE="import",GROQ_API_KEY="",HF_TOKEN="",HUGGINGFACE_TOKEN="",API_TOKENS="",AUTH_USERS_JSON="",MEDIA_SIGNING_SECRET="local-proof-signing-secret-at-least-32-characters",API_PORT="8000",WORKER_PORT="8081",FRONTEND_PORT="8080",E2E_BASE_URL="http://127.0.0.1:8080")
     for name in ("DATABASE_URL","REDIS_URL","S3_ENDPOINT_URL","S3_ACCESS_KEY","S3_SECRET_KEY","STORAGE_BACKEND"):
         environment.pop(name,None)
     environment["INDICMEET_DATA_DIR"]=str(folder/"runtime")
@@ -32,19 +32,22 @@ def main():
     run([llm,"-c","import json; from pathlib import Path; from indicmeet.summary import summarize; from indicmeet.demo import FakeGroq; rows=json.loads(Path('fixtures/demo_asr.json').read_text(encoding='utf-8')); result=summarize(rows,api_key='demo',client=FakeGroq(),log=lambda *a:None); assert result['overview_claims']; print('ISOLATED LLM PASS cited claims=',len(result['overview_claims']))"],clone)
     run([python,"-m","alembic","upgrade","head"],clone)
     run([python,"-m","alembic","upgrade","head"],clone)
-    run([python,"-m","ruff","check","backend","indicmeet","tests","scripts"],clone)
+    run([python,"-m","ruff","check","backend","indicmeet","asr_service","tests","scripts"],clone)
     run([python,"-m","pytest","-q","--tb=short"],clone)
+    run([python,"-m","pytest","-q","tests/test_asr_async.py","tests/test_asr_service.py","tests/test_production_config.py","--tb=short"],clone)
     run([python,"scripts/validate_contract.py","fixtures"],clone)
     run([python,"scripts/audit_git.py"],clone)
+    run([python,"scripts/audit_credentials.py"],clone)
     npm="npm.cmd" if os.name=="nt" else "npm"
     run([npm,"ci"],clone/"frontend")
     run([npm,"run","build"],clone/"frontend")
     project="indicmeet-fresh-"+folder.name.rsplit("-",1)[-1]
-    compose=["docker","compose","-p",project]
+    environment["COMPOSE_PROJECT_NAME"]=project
+    compose=["docker","compose","--env-file",".env.demo.example"]
     try:
         run(compose+["up","--build","-d","--wait"],clone)
         run(compose+["ps"],clone)
-        run([python,"scripts/smoke_test.py","--url","http://127.0.0.1:8017"],clone)
+        run([python,"scripts/smoke_test.py","--url","http://127.0.0.1:8000"],clone)
         run([npm,"run","test:e2e"],clone/"frontend")
         run(compose+["ps"],clone)
         run(compose+["logs","--tail","35","api","worker"],clone)

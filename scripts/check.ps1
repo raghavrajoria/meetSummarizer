@@ -1,7 +1,7 @@
 param([string]$Python = "python")
 $ErrorActionPreference = "Stop"
 Set-Location (Split-Path $PSScriptRoot -Parent)
-& $Python -m ruff check backend indicmeet tests scripts
+& $Python -m ruff check backend indicmeet asr_service tests scripts
 if ($LASTEXITCODE) { exit $LASTEXITCODE }
 & $Python -m pytest -q --tb=short
 if ($LASTEXITCODE) { exit $LASTEXITCODE }
