@@ -5,10 +5,13 @@ def main():
     patterns=[rb"gsk_[A-Za-z0-9]{20,}",rb"hf_[A-Za-z0-9]{20,}",rb"(?:AKIA|ASIA)[A-Z0-9]{16}",rb"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"]
     objects=git("rev-list","--objects","--all").decode().splitlines()
     blobs,large,hits=0,[],[]
+    paths={entry.partition(" ")[0]:entry.partition(" ")[2] for entry in objects}
+    stream=io.BytesIO(subprocess.check_output(["git","cat-file","--batch"],input=("\n".join(paths)+"\n").encode()))
     for entry in objects:
-        oid,_,path=entry.partition(" ")
-        if git("cat-file","-t",oid).strip()!=b"blob":continue
-        blobs+=1;data=git("cat-file","blob",oid)
+        header=stream.readline().decode().strip().split()
+        oid,kind,size=header;data=stream.read(int(size));stream.read(1)
+        if kind!="blob":continue
+        path=paths[oid];blobs+=1
         if len(data)>5*1024*1024:large.append((path,len(data)))
         contents=[data]
         if data.startswith(b"PK"):
@@ -25,8 +28,8 @@ def main():
     for path,size in large:print("LARGE",path,size)
     for path in suspicious:print("SUSPICIOUS",path)
     sizes=[]
-    for p in tracked:
-        data=git("show","HEAD:"+p);sizes.append((len(data),p))
+    for entry in git("ls-tree","-rl","HEAD").decode().splitlines():
+        metadata,path=entry.split("\t",1);sizes.append((int(metadata.split()[-1]),path))
     for size,path in sorted(sizes,reverse=True)[:10]:print("LARGEST TRACKED",size,path)
     for needle in ("gsk_","hf_","AKIA","ASIA","PRIVATE KEY"):
         history=git("log","--all","--oneline","-S",needle).decode().strip()

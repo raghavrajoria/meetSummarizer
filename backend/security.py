@@ -26,7 +26,7 @@ def password_matches(password, stored):
         return False
 
 def users():
-    configured = json.loads(os.environ.get("AUTH_USERS_JSON", "{}"))
+    configured = json.loads(os.environ.get("AUTH_USERS_JSON") or "{}")
     if get_settings().demo_mode and not configured:
         return {"demo": {"password_hash": password_hash("demo-password", "demo-only"), "role": "editor"}}
     return configured

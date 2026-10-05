@@ -30,6 +30,7 @@ def configure_logging():
         child = logging.getLogger(name)
         child.handlers = []
         child.propagate = True
+    logging.getLogger("uvicorn.access").disabled = True
     # Multipart's debug messages include uploaded bytes; keep them disabled.
     logging.getLogger("python_multipart").setLevel(logging.WARNING)
 

@@ -53,3 +53,12 @@ def test_summary_edit_migration_preserves_original(api_env,api_client):
     with api_env.sessions() as db:
         assert db.get(MeetingSession,"edits").payload["summary"]=="AI original"
         assert db.get(SummaryEdit,"edits").text=="human edit"
+
+
+def test_compose_empty_users_value_allows_only_explicit_demo(api_env,monkeypatch):
+    monkeypatch.setenv("AUTH_USERS_JSON", "")
+    monkeypatch.setenv("DEMO_MODE", "true")
+    response=api_env.client.post("/auth/login",json={"username":"demo","password":"demo-password"})
+    assert response.status_code==200
+    monkeypatch.setenv("DEMO_MODE", "false")
+    assert api_env.client.post("/auth/login",json={"username":"demo","password":"demo-password"}).status_code==401
