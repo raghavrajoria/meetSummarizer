@@ -14,6 +14,8 @@ export default defineConfig({
   build: {
     rollupOptions: {
       input: {
+        upload: resolve(import.meta.dirname, "upload.html"),
+        processing: resolve(import.meta.dirname, "processing.html"),
         index: resolve(import.meta.dirname, "index.html"),
         dashboard: resolve(import.meta.dirname, "dashboard.html"),
         meetings: resolve(import.meta.dirname, "meetings.html"),
