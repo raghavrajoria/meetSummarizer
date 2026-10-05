@@ -68,9 +68,8 @@ def process_meeting(record, store, stage):
                         overlap, span = max(overlaps, key=lambda item: item[0])
                         if overlap > 0:
                             row["speaker"] = span["speaker"]
-                            from indicmeet.contract import stable_id
-                            row["segment_id"] = stable_id(row["start"], row["speaker"])
-                return asr
+                from indicmeet.contract import reidentify
+                return reidentify(asr)
             asr = stage("diarization", 55, assign_speakers)
         if "livekit_session" in files and not files.get("participant_tracks"):
             from indicmeet.speakers import LiveKitEvents, name_clusters

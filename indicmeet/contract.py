@@ -128,3 +128,17 @@ def legacy_rows(segments: list[dict]) -> list[dict]:
 
 def review_gate(segments: list[dict], strict: bool) -> list[dict]:
     return [s for s in segments if s["text_native"].strip() and s["quality"] != "rejected" and s["asr"].get("source_quality") != "rejected" and (not strict or s["quality"] == "accepted")]
+
+
+def reidentify(segments):
+    """Recompute IDs after speaker alignment, preserving collision disambiguation."""
+    from copy import deepcopy
+    from collections import Counter
+    output=deepcopy(segments)
+    counts=Counter((row["start"],row["speaker"]) for row in output)
+    for row in output:
+        identifier=stable_id(row["start"],row["speaker"])
+        if counts[(row["start"],row["speaker"])]>1:
+            identifier += "_" + hashlib.sha256(json.dumps([row["end"],row["text_native"]],ensure_ascii=False).encode()).hexdigest()[:12]
+        row["segment_id"]=identifier
+    return canonicalize(output)

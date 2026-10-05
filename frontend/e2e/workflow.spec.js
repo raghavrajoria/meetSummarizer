@@ -14,7 +14,7 @@ test("demo login upload progress playback edit reload download and delete", asyn
   await page.getByRole("link",{name:"Upload recording",exact:true}).first().click();
   const title=`E2E demo ${Date.now()}`;
   await page.getByLabel("Meeting title").fill(title);
-  await page.getByLabel("Recording",{exact:true}).setInputFiles(path.resolve("../fixtures/demo.mp4"));
+  await page.getByLabel("Recording",{exact:true}).setInputFiles(path.resolve(process.env.E2E_MEDIA_FIXTURE || "../fixtures/demo.webm"));
   const processing=page.waitForURL(/processing.html/);
   await page.getByRole("button",{name:"Upload and process"}).click();
   await processing;

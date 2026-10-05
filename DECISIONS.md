@@ -50,3 +50,17 @@ Why: Preserves stored evidence while enforcing the language gate; no silent rout
 Reversible: yes
 
 Owner clarification: every mul/und row is review; original rejected status is retained in asr.source_quality and blocked even in relaxed mode. Real mixed reference rows are tracked and exercise LLM exclusion and browser visibility. The frontend displays the language code and review badge directly.
+
+## 2026-10-05 Final import and deployment edge cases
+Context: The shape adapter accepted sparse real artifacts, but upload pre-validation still required obsolete fields; speaker reassignment could discard collision suffixes.
+Options: Keep inconsistent import paths / use the adapter for file imports and reidentify all aligned rows together.
+Chosen: Canonical import validation, collision-safe reidentification after alignment, optional private env file for all container settings, configurable service endpoints and S3 staging eviction after durable writes/processing. Added idempotent bucket regression.
+Why: Fresh clones must exercise the same contract as real imports and separate worker/API storage. Local durable files are never evicted.
+Reversible: yes
+
+## 2026-10-05 Portable browser playback fixture
+Context: Fresh-clone Playwright reached signed media HTTP 206 but bundled Windows Chromium canPlayType returned empty for H.264/AAC and probably for VP8/Opus.
+Options: Ignore playback / require a proprietary browser / encode the approved short clip in WebM and retain optional installed-browser MP4 verification.
+Chosen: Add small VP8/Opus fixture; require actual playback and seek in the portable test; expose optional browser and fixture selectors.
+Why: The regression must verify decoded media without assuming the test browser ships licensed codecs.
+Reversible: yes

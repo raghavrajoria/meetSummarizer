@@ -187,6 +187,7 @@ async def import_session(
                   progress=100, completed_at=now, stage_timings={})
         db.add(job)
         media_store.flush(uploaded.prefix)
+        media_store.evict(uploaded.prefix)
         db.commit()
         return frontend_payload(record, job)
     except BaseException:
@@ -242,6 +243,7 @@ async def create_meeting(request: Request, db: Session = Depends(get_db),
         db.flush()
         job = queue.enqueue(db, record.id, request.state.request_id)
         media_store.flush(uploaded.prefix)
+        media_store.evict(uploaded.prefix)
         db.commit()
         from .services import notify
         notify()

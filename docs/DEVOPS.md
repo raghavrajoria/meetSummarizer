@@ -29,3 +29,5 @@ Back up Postgres and S3 together with their key references; verify restore befor
 
 ## Verification
 `scripts/check.ps1 -Python <venv-python>` or `scripts/check.sh` runs lint, suite, fixture schema and clean build. `python scripts/smoke_test.py --url http://127.0.0.1:8000` exercises login/upload/worker/citations/signed Range/edit/revert/export/delete/logout. Playwright `npm run test:e2e` asserts actual playback/seek, persisted edit, downloaded JSON file and deletion. All proof runs require explicit demo mode; real ASR/diarization accuracy, Groq Indian-language output quality and real LiveKit data are separate integration acceptance.
+
+Compose optionally loads the ignored .env for all application settings; explicit service wiring takes precedence. S3_ENDPOINT_URL, S3_BUCKET, S3_REGION and REDIS_URL are configurable. Successful S3 uploads and completed worker jobs evict reconstructible staging copies; local durable storage is never evicted. Configure a private writable INDICMEET_LLM_CACHE on production workers and its disk/retention policy.

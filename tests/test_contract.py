@@ -61,3 +61,22 @@ def test_approved_mixed_unknown_markers_preserve_labels_and_force_review():
     assert raw[0]["language"]=="mixed" and raw[0]["quality"]=="accepted"
     with pytest.raises(ValueError):Segment.model_validate({**rows[0],"quality":"accepted"})
     with pytest.raises(ValueError):Segment.model_validate({**rows[0],"language":"not-an-iso-code"})
+
+
+def test_real_same_start_rows_keep_unique_ids_after_speaker_alignment():
+    from indicmeet.contract import reidentify
+    raw=json.loads((ROOT/"fixtures/session.json").read_text(encoding="utf-8"))["segments"]
+    rows=canonicalize(raw)
+    for row in rows:row["speaker"]="ALIGNED"
+    aligned=reidentify(rows)
+    assert len({r["segment_id"] for r in aligned})==len(rows)
+    assert [r["text_native"] for r in aligned]==[r["text_native"] for r in rows]
+    assert reidentify(aligned)==aligned
+
+def test_sparse_legacy_rows_import_through_provider(tmp_path):
+    from indicmeet.asr_provider import ImportAsrProvider
+    raw=json.loads((ROOT/"fixtures/session.json").read_text(encoding="utf-8"))["segments"]
+    file=tmp_path/"legacy.json";file.write_text(json.dumps(raw,ensure_ascii=False),encoding="utf-8")
+    rows=ImportAsrProvider().transcribe(tmp_path/"unused.wav",asr_json_path=file)
+    assert len(rows)==len(raw)
+    assert all(Segment.model_validate(row) for row in rows)

@@ -68,7 +68,11 @@ def validate_asr_file(path: Path) -> list[dict[str, Any]]:
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise AsrValidationError(f"Cannot read ASR JSON file {path}: {exc}") from exc
-    return validate_asr_rows(value)
+    from .contract import canonicalize
+    try:
+        return canonicalize(value)
+    except (ValueError,TypeError) as exc:
+        raise AsrValidationError("Invalid imported transcript") from exc
 
 
 class AsrProvider(Protocol):

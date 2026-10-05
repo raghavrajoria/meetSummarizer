@@ -78,6 +78,9 @@ class LocalStorage:
     def flush(self, prefix):
         pass  # Local writes are already durable on the shared volume.
 
+    def evict(self, prefix):
+        pass  # Local storage is durable, not a cache.
+
     def ready(self):
         return self.root.is_dir()
 
@@ -124,6 +127,9 @@ class S3Storage(LocalStorage):
             objects=[{"Key":obj["Key"]} for obj in page.get("Contents",[]) if obj["Key"]==key or obj["Key"].startswith(key+"/")]
             if objects:self.client.delete_objects(Bucket=self.bucket,Delete={"Objects":objects})
         super().delete(key)
+    def evict(self, prefix):
+        LocalStorage.delete(self, prefix)
+
     def ready(self):
         self.client.head_bucket(Bucket=self.bucket);return True
 

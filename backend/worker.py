@@ -45,6 +45,7 @@ class Worker:
 
         thread = threading.Thread(target=heartbeat, daemon=True)
         timings, current_stage = {}, "starting"
+        record = None
 
         def stage(name, progress, action):
             nonlocal current_stage
@@ -81,6 +82,9 @@ class Worker:
             self.queue.fail(claim, current_stage + " failed")
             logger.error("job_failed job_id=%s stage=%s exception_type=%s", claim.id, current_stage, type(exc).__name__)
         finally:
+            if record and record.payload.get("storage_prefix"):
+                try: self.store.evict(record.payload["storage_prefix"])
+                except Exception: logger.warning("staging_cleanup_failed job_id=%s",claim.id)
             stop.set()
             if thread.ident is not None:
                 thread.join(timeout=5)
