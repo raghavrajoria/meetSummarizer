@@ -96,6 +96,6 @@ Reversible: yes
 ## 2026-10-05 Repository directory ownership
 Context: Owner requested eval/colab/deploy/scripts and ignore policy review.
 Options: Ignore all tooling / track source and exclude generated output.
-Chosen: eval/score_wer.py, deploy/ and scripts/ are source and remain tracked. eval/results and caches ignored; colab notebooks/generated output are local artifacts and remain ignored; approved tiny fixtures remain tracked. Add explicit colab output rules and ASR state ignore; .env.demo.example is an intentional public configuration exception.
+Chosen: eval/score_wer.py, deploy/ and scripts/ are source and remain tracked. eval/results and caches ignored; the entire colab/ directory is local notebook/generated artifact storage and remains ignored; approved tiny fixtures remain tracked. Add explicit colab output rules and ASR state ignore; .env.demo.example is an intentional public configuration exception.
 Why: A clone needs evaluation/deployment/check tooling, not retained media, credentials, model weights or notebook output.
 Reversible: yes

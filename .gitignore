@@ -33,3 +33,6 @@ colab/*.json
 colab/*.csv
 colab/*.log
 eval/results/
+
+# Entire local notebook/artifact workspace; canonical source lives elsewhere.
+colab/
