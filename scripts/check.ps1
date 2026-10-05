@@ -7,7 +7,10 @@ if ($LASTEXITCODE) { exit $LASTEXITCODE }
 if ($LASTEXITCODE) { exit $LASTEXITCODE }
 & $Python scripts/validate_contract.py fixtures
 if ($LASTEXITCODE) { exit $LASTEXITCODE }
-npm --prefix frontend ci
-if ($LASTEXITCODE) { exit $LASTEXITCODE }
-npm --prefix frontend run build
-exit $LASTEXITCODE
+Push-Location frontend
+try {
+    npm ci
+    if ($LASTEXITCODE) { exit $LASTEXITCODE }
+    npm run build
+    exit $LASTEXITCODE
+} finally { Pop-Location }

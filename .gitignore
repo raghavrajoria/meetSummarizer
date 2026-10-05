@@ -22,3 +22,5 @@ dist/
 playwright-report/
 test-results/
 !fixtures/demo.mp4
+
+.ruff_cache/
