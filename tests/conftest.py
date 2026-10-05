@@ -19,6 +19,9 @@ def api_env(tmp_path, monkeypatch):
                            connect_args={"check_same_thread": False})
     sessions = sessionmaker(bind=engine, autoflush=False)
     Base.metadata.create_all(engine)
+    from backend import security
+    monkeypatch.setattr(security, "SessionLocal", sessions)
+    monkeypatch.setenv("MEDIA_SIGNING_SECRET", "test-signing-secret-at-least-32-characters")
     store = LocalStorage(tmp_path / "media")
     queue = DatabaseJobQueue(sessions)
     def database():

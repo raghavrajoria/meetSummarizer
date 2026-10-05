@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
 from .database import MEDIA_DIR, get_db
-from .models import MeetingSession, Job
+from .models import MeetingSession, Job, SummaryEdit, AccessSession
 from .jobs import DatabaseJobQueue, JobQueue, job_payload
 from .logging_config import configure_logging, RequestLogMiddleware
 from .security import AuthMiddleware
@@ -36,7 +36,7 @@ app.add_middleware(AuthMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=list(get_settings().cors_origins),
-    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Range", "Authorization", "X-Request-ID"],
     expose_headers=["Accept-Ranges", "Content-Range", "Content-Length", "X-Request-ID"],
 )
@@ -51,10 +51,15 @@ def get_queue() -> JobQueue:
     return DatabaseJobQueue(lease_seconds=get_settings().worker_lease_seconds)
 
 
-def frontend_payload(record: MeetingSession, job: Job | None = None) -> dict[str, Any]:
+def frontend_payload(record: MeetingSession, job: Job | None = None, db=None) -> dict[str, Any]:
     payload = dict(record.payload)
     for private in ("source_files", "storage_prefix", "transcript_key"):
         payload.pop(private, None)
+    payload["original_summary"] = payload.get("summary", "")
+    edit = db.get(SummaryEdit, record.id) if db else None
+    if edit:
+        payload["summary"] = edit.text
+    payload["summary_edited"] = edit is not None
     payload["id"] = record.id
     payload["title"] = record.title
     payload["group"] = record.group_name
@@ -76,7 +81,7 @@ def frontend_payload(record: MeetingSession, job: Job | None = None) -> dict[str
 @app.get("/meetings")
 def list_sessions(db: Session = Depends(get_db)) -> list[dict[str, Any]]:
     records = db.scalars(select(MeetingSession).order_by(MeetingSession.date.desc(), MeetingSession.title)).all()
-    return [frontend_payload(record, db.scalar(select(Job).where(Job.meeting_id == record.id))) for record in records]
+    return [frontend_payload(record, db.scalar(select(Job).where(Job.meeting_id == record.id)), db) for record in records]
 
 
 @app.get("/sessions/{session_id}")
@@ -85,7 +90,7 @@ def get_session(session_id: str, db: Session = Depends(get_db)) -> dict[str, Any
     record = db.get(MeetingSession, session_id)
     if record is None:
         raise HTTPException(status_code=404, detail="Session not found")
-    return frontend_payload(record, db.scalar(select(Job).where(Job.meeting_id == record.id)))
+    return frontend_payload(record, db.scalar(select(Job).where(Job.meeting_id == record.id)), db)
 
 
 @app.get("/sessions/{session_id}/media")
@@ -322,3 +327,79 @@ def ready(db: Session = Depends(get_db), media_store: Storage = Depends(get_stor
             media_store.delete(temporary_key)
         except OSError:
             pass
+
+
+@app.get("/config")
+def public_config():
+    return {"demo_mode":get_settings().demo_mode,"max_upload_mb":get_settings().max_upload_mb,"import_mode":get_settings().asr_mode=="import"}
+
+@app.post("/auth/login")
+async def login(request: Request, db: Session=Depends(get_db)):
+    import secrets, time
+    from .security import users, password_matches, token_hash
+    try:
+        body=await request.json()
+        username, password=body["username"],body["password"]
+        if not isinstance(username,str) or not isinstance(password,str) or len(password)>1024:
+            raise ValueError()
+    except (ValueError,KeyError,TypeError):
+        raise HTTPException(422,"username and password are required") from None
+    user=users().get(username,{})
+    if not password_matches(password,user.get("password_hash","")):
+        raise HTTPException(401,"Invalid username or password")
+    role=user.get("role","editor")
+    if role not in {"viewer","editor","admin"}:
+        raise HTTPException(503,"Account configuration invalid")
+    token=secrets.token_urlsafe(32)
+    lifetime=min(3600,max(60,int(__import__("os").environ.get("ACCESS_TOKEN_SECONDS","900"))))
+    db.add(AccessSession(id=token_hash(token),username=username,role=role,expires=int(time.time())+lifetime))
+    db.commit()
+    return {"access_token":token,"token_type":"bearer","expires_in":lifetime,"username":username,"role":role}
+
+@app.post("/auth/logout",status_code=204)
+def logout(request:Request,db:Session=Depends(get_db)):
+    session=request.state.identity.get("session")
+    if session and session!="integration":
+        row=db.get(AccessSession,session)
+        if row:
+            db.delete(row); db.commit()
+    return Response(status_code=204)
+
+@app.get("/meetings/{session_id}/media-url")
+def media_url(session_id:str,request:Request,db:Session=Depends(get_db)):
+    import time
+    from .security import media_signature
+    record=db.get(MeetingSession,session_id)
+    if not record or not record.media_key:
+        raise HTTPException(404,"Media not found")
+    path=f"/meetings/{session_id}/media"
+    expires=str(int(time.time())+120)
+    session=request.state.identity.get("session","integration")
+    try:
+        signature=media_signature(path,expires,session)
+    except ValueError:
+        raise HTTPException(503,"Media signing unavailable") from None
+    return {"url":f"{path}?expires={expires}&session={session}&signature={signature}","expires_in":120}
+
+@app.put("/meetings/{session_id}/summary")
+async def save_summary(session_id:str,request:Request,db:Session=Depends(get_db)):
+    from datetime import datetime
+    record=db.get(MeetingSession,session_id)
+    if not record:
+        raise HTTPException(404,"Meeting not found")
+    body=await request.json()
+    text=body.get("text") if isinstance(body,dict) else None
+    if not isinstance(text,str) or len(text)>50000:
+        raise HTTPException(422,"text must be a string up to 50000 characters")
+    db.merge(SummaryEdit(meeting_id=session_id,text=text,updated_at=datetime.utcnow()))
+    db.commit()
+    return {"summary":text,"summary_edited":True}
+
+@app.delete("/meetings/{session_id}/summary",status_code=204)
+def revert_summary(session_id:str,db:Session=Depends(get_db)):
+    if not db.get(MeetingSession,session_id):
+        raise HTTPException(404,"Meeting not found")
+    row=db.get(SummaryEdit,session_id)
+    if row:
+        db.delete(row); db.commit()
+    return Response(status_code=204)

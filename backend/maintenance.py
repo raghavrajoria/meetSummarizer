@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 from sqlalchemy import delete, select, update
 
-from .models import Job, MeetingSession
+from .models import Job, MeetingSession, SummaryEdit
 
 
 class MeetingBusy(ValueError):
@@ -26,6 +26,7 @@ def delete_meeting(db, store, record, *, expired_before=None):
     elif record.media_key:
         store.delete(record.media_key)
     db.execute(delete(Job).where(Job.meeting_id == record.id))
+    db.execute(delete(SummaryEdit).where(SummaryEdit.meeting_id == record.id))
     db.delete(record)
     db.commit()
 

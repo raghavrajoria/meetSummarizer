@@ -68,3 +68,7 @@ class RequestLogMiddleware:
             # Do not log request URLs, query strings, headers, or response bodies.
             logger.info("request_completed method=%s status=%s seconds=%.3f", scope["method"], status, time.monotonic() - started)
             request_id.reset(token)
+
+# HTTP client URLs may contain signatures; request middleware logs only method/status.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("urllib3").setLevel(logging.WARNING)

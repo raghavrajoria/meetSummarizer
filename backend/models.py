@@ -42,3 +42,16 @@ class Job(Base):
     worker_token: Mapped[str | None] = mapped_column(String(32), nullable=True)
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     stage_timings: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+
+class AccessSession(Base):
+    __tablename__ = "access_sessions"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    username: Mapped[str] = mapped_column(String(200), nullable=False)
+    role: Mapped[str] = mapped_column(String(16), nullable=False)
+    expires: Mapped[int] = mapped_column(Integer, nullable=False)
+
+class SummaryEdit(Base):
+    __tablename__ = "summary_edits"
+    meeting_id: Mapped[str] = mapped_column(ForeignKey("meeting_sessions.id", ondelete="CASCADE"), primary_key=True)
+    text: Mapped[str] = mapped_column(String(50000), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
