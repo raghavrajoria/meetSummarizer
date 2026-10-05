@@ -1,0 +1,44 @@
+# Standalone production template. Do NOT merge this with the demo Compose file.
+name: indicmeet-prod
+x-app: &app
+  build: .
+  restart: unless-stopped
+  env_file: .env
+  environment: &environment
+    APP_ENV: production
+    DEMO: "false"
+    ASR_MODE: remote
+    STORAGE_BACKEND: s3
+    INDICMEET_DATA_DIR: /var/lib/indicmeet
+    DATABASE_URL: ${DATABASE_URL:?External PostgreSQL required}
+    REDIS_URL: ${REDIS_URL:?External Redis required}
+    S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:?External HTTPS S3 endpoint required}
+    S3_BUCKET: ${S3_BUCKET:?S3 bucket required}
+    S3_REGION: ${S3_REGION:-us-east-1}
+    S3_ACCESS_KEY: ${S3_ACCESS_KEY:?Private S3 access key required}
+    S3_SECRET_KEY: ${S3_SECRET_KEY:?Private S3 secret key required}
+    ASR_SERVICE_URL: ${ASR_SERVICE_URL:?HTTPS ASR base URL required}
+    ASR_SERVICE_TOKEN: ${ASR_SERVICE_TOKEN:?ASR bearer required}
+    GROQ_API_KEY: ${GROQ_API_KEY:?Groq key required}
+    AUTH_USERS_JSON: ${AUTH_USERS_JSON:?Hashed users required}
+    MEDIA_SIGNING_SECRET: ${MEDIA_SIGNING_SECRET:?Random signing key required}
+    CORS_ORIGINS: ${CORS_ORIGINS:?Exact HTTPS origin required}
+services:
+  api:
+    <<: *app
+    volumes: [api-staging:/var/lib/indicmeet]
+    healthcheck: {test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/readyz',timeout=3)"], interval: 10s, timeout: 4s, retries: 30}
+  worker:
+    <<: *app
+    environment: {<<: *environment, SERVICE_ROLE: worker}
+    volumes: [worker-staging:/var/lib/indicmeet]
+    healthcheck: {test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/readyz',timeout=3)"], interval: 10s, timeout: 4s, retries: 30}
+  frontend:
+    build: frontend
+    restart: unless-stopped
+    depends_on: {api: {condition: service_healthy}}
+    ports: ["127.0.0.1:${FRONTEND_PORT:-8080}:80"]
+    healthcheck: {test: [CMD, wget, -q, --spider, http://127.0.0.1/], interval: 10s, timeout: 3s, retries: 30}
+volumes:
+  api-staging:
+  worker-staging:

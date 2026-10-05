@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from contextlib import asynccontextmanager
 import re
 from typing import Any
 
@@ -31,7 +32,12 @@ RANGE_PATTERN = re.compile(r"^bytes=(\d*)-(\d*)$")
 
 
 configure_logging()
-app = FastAPI(title="meetSummerizer API", version="0.2.0")
+@asynccontextmanager
+async def lifespan(app):
+    from .config_guard import validate_app_configuration
+    validate_app_configuration()
+    yield
+app = FastAPI(title="meetSummerizer API", version="0.3.0", lifespan=lifespan)
 app.add_middleware(AuthMiddleware)
 app.add_middleware(
     CORSMiddleware,
@@ -55,6 +61,7 @@ def frontend_payload(record: MeetingSession, job: Job | None = None, db=None) ->
     payload = dict(record.payload)
     for private in ("source_files", "storage_prefix", "transcript_key"):
         payload.pop(private, None)
+    payload["asr_model_versions"] = sorted({row.get("asr",{}).get("model_version","legacy-import-unversioned") for row in payload.get("transcript",[])})
     payload["original_summary"] = payload.get("summary", "")
     edit = db.get(SummaryEdit, record.id) if db else None
     if edit:

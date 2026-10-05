@@ -6,22 +6,25 @@ x-app: &app
     - path: .env
       required: false
   environment: &environment
-    DEMO_MODE: ${DEMO_MODE:-true}
-    DATABASE_URL: ${DATABASE_URL:-postgresql://indicmeet:local-demo-password@db:5432/indicmeet}
+    DEMO: ${DEMO:-false}
+    APP_ENV: ${APP_ENV:-production}
+    DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL or select .env.demo.example}
     INDICMEET_DATA_DIR: /var/lib/indicmeet
     STORAGE_BACKEND: s3
     S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-http://minio:9000}
     S3_BUCKET: ${S3_BUCKET:-indicmeet}
     S3_REGION: ${S3_REGION:-us-east-1}
-    S3_ACCESS_KEY: ${S3_ACCESS_KEY:-local-demo}
-    S3_SECRET_KEY: ${S3_SECRET_KEY:-local-demo-storage-password}
+    S3_ACCESS_KEY: ${S3_ACCESS_KEY:?Set S3_ACCESS_KEY or select .env.demo.example}
+    S3_SECRET_KEY: ${S3_SECRET_KEY:?Set S3_SECRET_KEY or select .env.demo.example}
     REDIS_URL: ${REDIS_URL:-redis://queue:6379/0}
-    ASR_MODE: ${ASR_MODE:-import}
+    ASR_MODE: ${ASR_MODE:-remote}
     ASR_SERVICE_URL: ${ASR_SERVICE_URL:-}
     ASR_SERVICE_TOKEN: ${ASR_SERVICE_TOKEN:-}
+    ASR_POLL_INTERVAL_SECONDS: ${ASR_POLL_INTERVAL_SECONDS:-2}
+    ASR_JOB_TIMEOUT_SECONDS: ${ASR_JOB_TIMEOUT_SECONDS:-10800}
     GROQ_API_KEY: ${GROQ_API_KEY:-}
     AUTH_USERS_JSON: ${AUTH_USERS_JSON:-}
-    MEDIA_SIGNING_SECRET: ${MEDIA_SIGNING_SECRET:-local-demo-signing-secret-change-before-hosting}
+    MEDIA_SIGNING_SECRET: ${MEDIA_SIGNING_SECRET:-}
     STRICT_REVIEW: ${STRICT_REVIEW:-true}
   depends_on:
     db: {condition: service_healthy}
@@ -31,7 +34,7 @@ services:
   db:
     image: postgres:16.6-bookworm
     restart: unless-stopped
-    environment: {POSTGRES_USER: indicmeet, POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-local-demo-password}", POSTGRES_DB: indicmeet}
+    environment: {POSTGRES_USER: indicmeet, POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD or select .env.demo.example}", POSTGRES_DB: indicmeet}
     volumes: [db-data:/var/lib/postgresql/data]
     healthcheck: {test: [CMD-SHELL, "pg_isready -U indicmeet -d indicmeet"], interval: 3s, timeout: 3s, retries: 30}
   queue:
@@ -43,7 +46,7 @@ services:
   minio:
     build: deploy/minio
     restart: unless-stopped
-    environment: {MINIO_ROOT_USER: "${S3_ACCESS_KEY:-local-demo}", MINIO_ROOT_PASSWORD: "${S3_SECRET_KEY:-local-demo-storage-password}"}
+    environment: {MINIO_ROOT_USER: "${S3_ACCESS_KEY:?Set S3_ACCESS_KEY or select .env.demo.example}", MINIO_ROOT_PASSWORD: "${S3_SECRET_KEY:?Set S3_SECRET_KEY or select .env.demo.example}"}
     command: server /data --console-address :9001
     volumes: [storage-data:/data]
     healthcheck: {test: [CMD, curl, -f, http://localhost:9000/minio/health/live], interval: 3s, timeout: 3s, retries: 30}

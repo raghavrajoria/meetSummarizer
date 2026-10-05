@@ -1,8 +1,10 @@
 """Serialize migration startup using a Postgres advisory lock."""
 import os,subprocess,sys
 from sqlalchemy import text
-from .database import engine
 def main():
+    from .config_guard import validate_app_configuration
+    validate_app_configuration()
+    from .database import engine
     with engine.connect() as connection:
         postgres=connection.dialect.name=="postgresql"
         if postgres:connection.execute(text("SELECT pg_advisory_lock(170105)") )

@@ -21,6 +21,7 @@ test("demo login upload progress playback edit reload download and delete", asyn
   await expect(page.getByRole("heading",{name:"Processing meeting"})).toBeVisible();
   await expect(page).toHaveURL(/meeting.html\?id=/,{timeout:90000});
   await expect(page.getByRole("heading",{name:title})).toBeVisible();
+  await expect(page.locator(".model-metadata")).toContainText("legacy-import-unversioned");
   for(const name of ["Native","Roman","English"]){await page.getByRole("button",{name,exact:true}).click();await expect(page.getByRole("button",{name,exact:true})).toHaveAttribute("aria-pressed","true");}
   await expect.poll(()=>page.locator("video").evaluate(v=>v.readyState)).toBeGreaterThan(0);
   await page.locator("video").evaluate(v=>v.play());

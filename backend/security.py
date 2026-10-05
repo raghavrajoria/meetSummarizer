@@ -35,6 +35,9 @@ def secret():
     value = os.environ.get("MEDIA_SIGNING_SECRET", "")
     if not value and get_settings().demo_mode:
         value = "local-demo-only-do-not-use-in-production"
+    if not get_settings().demo_mode and get_settings().app_env=="production":
+        from .config_guard import unsafe
+        if unsafe(value):raise ValueError("MEDIA_SIGNING_SECRET is default/weak")
     if len(value) < 32:
         raise ValueError("MEDIA_SIGNING_SECRET must contain at least 32 characters")
     return value.encode()
