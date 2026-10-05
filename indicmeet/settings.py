@@ -67,6 +67,8 @@ class Settings:
     worker_poll_seconds: float
     worker_lease_seconds: float
     retention_days: int
+    strict_review: bool
+    demo_mode: bool
 
 
 def get_settings() -> Settings:
@@ -115,4 +117,6 @@ def get_settings() -> Settings:
         worker_poll_seconds=float(_value("WORKER_POLL_SECONDS", "2")),
         worker_lease_seconds=float(_value("WORKER_LEASE_SECONDS", "180")),
         retention_days=int(_value("RETENTION_DAYS", "0")),
+        strict_review=_value("STRICT_REVIEW", "true").lower() == "true",
+        demo_mode=_value("DEMO_MODE", "false").lower() == "true",
     )

@@ -308,48 +308,37 @@ def _session_payload(session_id: str, title: str, kind: str, media_name: str,
             "join": _clock(min(float(item.get("start", 0)) for item in spans)),
             "leave": _clock(max(float(item.get("end", item.get("start", 0))) for item in spans)),
         })
-    segment_ids = {item.get("idx", i): f"segment-{i + 1:04d}" for i, item in enumerate(asr)}
-    segments = []
-    for i, item in enumerate(asr):
-        start = float(item.get("start", 0))
-        segments.append({
-            "id": segment_ids[item.get("idx", i)],
-            "t": start,
-            "end": float(item.get("end", start)),
-            "time": _clock(start),
-            "speaker": item.get("speaker", "SPEAKER_00"),
-            "lang": item.get("lang", "unknown"),
-            "tx": item.get("text", ""),
-            "en": item.get("english", "") or (item.get("text", "") if item.get("lang") == "en" else ""),
-            "quality": item.get("quality", "accepted"),
-            "verified": item.get("quality") == "accepted",
-            "reasons": item.get("reasons", []),
-        })
 
-    def evidence(item: dict[str, Any]) -> list[dict[str, Any]]:
-        refs = item.get("ev", [])
-        result = []
-        for ref in refs if isinstance(refs, list) else []:
-            matched = next((s for s in segments if s["id"] == segment_ids.get(ref) or s["t"] == ref), None)
-            if matched:
-                result.append({"segmentId": matched["id"], "t": matched["t"], "time": matched["time"]})
-        return result
+    from .contract import canonicalize
+    canonical = canonicalize(asr)
+    segments = [{**item, "id": item["segment_id"], "t": item["start"], "time": _clock(item["start"]),
+                 "lang": item["language"], "tx": item["text_native"],
+                 "en": item["text_english"] or (item["text_native"] if item["language"] == "en" else ""),
+                 "roman": item["text_roman"], "verified": item["quality"] == "accepted"} for item in canonical]
+    by_id = {item["segment_id"]: item for item in segments}
 
-    def summary_items(key: str, label: str) -> list[dict[str, Any]]:
-        items = summary.get(key, []) or []
-        out_items = []
-        for item in items:
+    def evidence(item):
+        refs = item.get("source_segment_ids", [])
+        return [{"segmentId": ref, "t": by_id[ref]["start"], "time": by_id[ref]["time"]}
+                for ref in refs if isinstance(ref, str) and ref in by_id]
+
+    def summary_items(key, label):
+        output = []
+        for item in summary.get(key, []) or []:
             if not isinstance(item, dict):
                 continue
-            text = item.get(label) or item.get("text") or item.get("point") or item.get("task") or item.get("item") or ""
             ev = evidence(item)
-            out_items.append({"text": text, "verified": not bool(item.get("unverified")), "evidence": ev,
-                              **({"owner": item.get("owner")} if "owner" in item else {}),
-                              **({"due": item.get("due")} if "due" in item else {})})
-        return out_items
+            if not ev:
+                continue
+            output.append({"text": item.get(label) or item.get("text") or item.get("q") or "",
+                           "source_segment_ids": [e["segmentId"] for e in ev],
+                           "verified": not bool(item.get("unverified")), "evidence": ev,
+                           **({"owner": item.get("owner"), "due": item.get("due")} if "owner" in item else {})})
+        return output
 
     intelligence = {
         "discussed": summary.get("overview", ""),
+        "overviewClaims": [{**c, "evidence": evidence(c)} for c in summary.get("overview_claims", []) if evidence(c)],
         "keyDiscussion": summary_items("key_discussion", "point"),
         "decisions": summary_items("decisions", "decision"),
         "actionItems": summary_items("action_items", "task"),
@@ -371,7 +360,7 @@ def _session_payload(session_id: str, title: str, kind: str, media_name: str,
         "summaryData": summary,
         "participants": speakers,
         "speakers": speakers,
-        "transcript": asr,
+        "transcript": canonical,
         "segments": segments,
         "intelligence": intelligence,
     }

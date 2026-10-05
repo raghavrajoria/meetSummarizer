@@ -17,7 +17,7 @@ T = [
  (9,  "S06", "Yes, sure, Shashank."),
  (10, "S04", "The coffee machines are not working, I'll work on that soon."),
 ]
-ASR = [{"idx": i, "start": i * 10.0, "end": i * 10.0 + 8, "speaker": f"SPEAKER_{s[1:]}", "text": t, "quality": "accepted"} for i, s, t in T]
+ASR = [{"idx": i, "start": i * 10.0, "end": i * 10.0 + 8, "speaker": f"SPEAKER_{s[1:]}", "text": t, "quality": "accepted", "lang": "en"} for i, s, t in T]
 
 calls = {"notes": 0, "act": 0, "rec": 0, "ov": 0}
 def fake_llm(system, user, max_out, key, warn):
@@ -125,10 +125,10 @@ def test_unresolved_language_review_segments_are_excluded(monkeypatch):
     suspicious = ["veces", "Absolutamente.", "Sin duda, sin duda.", "Non, c'est jamais.",
                   "Iya, lihat dulu. Oke.", "Tchau, doutora Ivana."]
     asr = [{"idx": 0, "start": 1, "end": 3, "speaker": "SPEAKER_01", "text": "We discussed the project plan.",
-            "quality": "accepted", "method": "whisper"}]
+            "quality": "accepted", "method": "whisper", "lang": "en"}]
     asr.extend({"idx": i + 1, "start": 5 + i, "end": 5.5 + i, "speaker": "SPEAKER_02", "text": text,
                 "quality": "review", "method": "whisper_latin_unresolved"} for i, text in enumerate(suspicious))
     result = m.summarize(asr, attendees=[], aliases={}, api_key="test-only", log=lambda *args: None)
     assert result["stats"]["segments"] == 1
-    assert any("excluded 6 unresolved-language" in warning for warning in result["warnings"])
+    assert result["stats"]["segments"] == 1  # strict gate excludes all six review rows before extraction
     assert all(text not in "\n".join(prompts) for text in suspicious)

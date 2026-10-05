@@ -24,7 +24,7 @@ class AsrRow(BaseModel):
     quality: Literal["accepted", "review", "rejected"]
     reasons: list[str]
     duration: float = Field(ge=0, allow_inf_nan=False, strict=True)
-    confidence: float | None = Field(allow_inf_nan=False, strict=True)
+    confidence: float | None = Field(default=None, allow_inf_nan=False, strict=True)
     words: list[dict[str, Any]] | None = None
 
     @model_validator(mode="after")
@@ -42,6 +42,12 @@ class AsrValidationError(ValueError):
 
 
 def validate_asr_rows(value: Any) -> list[dict[str, Any]]:
+    if isinstance(value, list) and value and "segment_id" in value[0]:
+        from .contract import canonicalize
+        try:
+            return canonicalize(value)
+        except ValueError as exc:
+            raise AsrValidationError("Invalid canonical ASR response") from exc
     if not isinstance(value, list):
         raise AsrValidationError("ASR JSON must be a list of row objects")
     try:
@@ -74,7 +80,8 @@ class ImportAsrProvider:
         del audio_path  # The uploaded recording is retained alongside its imported ASR rows.
         if asr_json_path is None:
             raise ValueError("Import ASR mode requires an asr.json file")
-        return validate_asr_file(asr_json_path)
+        from .contract import canonicalize
+        return canonicalize(validate_asr_file(asr_json_path))
 
 
 class RemoteAsrProvider:
@@ -104,7 +111,8 @@ class RemoteAsrProvider:
             payload = response.json()
         except ValueError as exc:
             raise AsrValidationError("ASR service returned invalid JSON") from exc
-        return validate_asr_rows(payload)
+        from .contract import canonicalize
+        return canonicalize(validate_asr_rows(payload))
 
 
 def get_asr_provider(mode: str | None = None) -> AsrProvider:

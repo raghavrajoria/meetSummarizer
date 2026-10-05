@@ -87,11 +87,11 @@ class IndicMeetASR:
         dur = wav_chunk.shape[0] / self.SR
         if dur <= self.max_indic_chunk_s:
             return self._indic_decode(wav_chunk, lang_code)
-        n = math.ceil(dur / self.max_indic_chunk_s)
-        step = math.ceil(wav_chunk.shape[0] / n)
+        from .splitting import split_samples
+        spans = split_samples(wav_chunk.tolist(), self.SR, self.max_indic_chunk_s)
         texts = []
-        for i in range(n):
-            sub = wav_chunk[i * step:(i + 1) * step]
+        for start, end in spans:
+            sub = wav_chunk[start:end]
             if sub.shape[0] < int(0.3 * self.SR):
                 continue
             t = self._indic_decode(sub, lang_code)
@@ -189,7 +189,7 @@ class IndicMeetASR:
             d = end - start
             if d < min_dur:
                 continue
-            n = max(1, math.ceil(d / max_len))
+            n = 1
             step = d / n
             for i in range(n):
                 turn_start = round(start + i * step, 3)
@@ -215,7 +215,13 @@ class IndicMeetASR:
             end = min(max(0.0, float(turn["end"])), audio_duration)
             if end > start:
                 bounded_turns.append({**turn, "start": start, "end": end})
-        turns = bounded_turns
+        from .splitting import split_samples
+        turns = []
+        for turn in bounded_turns:
+            offset = int(turn["start"] * self.SR)
+            samples = wav[offset:int(turn["end"] * self.SR)].tolist()
+            for first, last in split_samples(samples, self.SR, 25):
+                turns.append({**turn, "start": (offset + first) / self.SR, "end": (offset + last) / self.SR})
         total_audio = sum(t["end"] - t["start"] for t in turns)
         print(f"Turns: {len(turns)} | speech to process: {total_audio/60:.1f} min | device: {self.device}")
         results, done_audio, t0 = [], 0.0, time.time()

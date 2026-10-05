@@ -294,7 +294,7 @@ def finish_action(a, segs, pos, canon, known, warn):
     else:
         a["due"] = None
 
-def summarize(asr, attendees=None, aliases=None, api_key=None, log=print, use_hints=True):
+def _extract_legacy(asr, attendees=None, aliases=None, api_key=None, log=print, use_hints=True):
     warnings, failed = [], []
     def warn(m): warnings.append(m); log("WARN:", m)
     key = api_key or _key()
@@ -403,3 +403,26 @@ def summarize(asr, attendees=None, aliases=None, api_key=None, log=print, use_hi
                      "commit_candidates": len(candidates), "cache_hits": CACHE_STATS["hit"], "api_calls": CACHE_STATS["api"]}}
     if LABEL.search(json.dumps({k: v for k, v in res.items() if k != "speaker_hints"}, ensure_ascii=False)): warn("speaker label still present in output")
     return res
+
+
+def summarize(asr, attendees=None, aliases=None, api_key=None, log=print, use_hints=True, strict_review=None):
+    from .contract import canonicalize, legacy_rows, review_gate
+    segments = canonicalize(asr)
+    strict = get_settings().strict_review if strict_review is None else strict_review
+    admitted = review_gate(segments, strict)
+    if not admitted:
+        return {"overview": "", "overview_claims": [], **{key: [] for key in FIELDS},
+                "warnings": ["No admissible transcript content"], "stats": {"segments": 0}}
+    result = _extract_legacy(legacy_rows(admitted), attendees, aliases, api_key, log, use_hints)
+    ids = {i: segment["segment_id"] for i, segment in enumerate(admitted)}
+    for key in FIELDS:
+        for item in result[key]:
+            item["source_segment_ids"] = [ids[ref] for ref in item.get("ev", []) if ref in ids]
+    claims = []
+    for key in ("key_discussion", "decisions", "action_items", "concerns"):
+        for item in result[key]:
+            if not item.get("unverified") and item.get("source_segment_ids"):
+                claims.append({"text": item[FIELDS[key]], "source_segment_ids": item["source_segment_ids"]})
+    result["overview_claims"] = claims[:6]
+    result["overview"] = " ".join(c["text"].rstrip(".") + "." for c in claims[:6])
+    return result

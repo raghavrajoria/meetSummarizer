@@ -50,7 +50,7 @@ def test_import_provider_loads_and_validates_file(tmp_path):
     audio.write_bytes(b"audio")
     transcript = tmp_path / "meeting_asr.json"
     transcript.write_text(json.dumps([ROW]), encoding="utf-8")
-    assert ImportAsrProvider().transcribe(audio, asr_json_path=transcript) == [ROW]
+    assert ImportAsrProvider().transcribe(audio, asr_json_path=transcript) == __import__("indicmeet.contract", fromlist=["canonicalize"]).canonicalize([ROW])
 
 
 def test_provider_factory_supports_import_and_remote(monkeypatch):
@@ -92,7 +92,7 @@ def test_remote_provider_posts_audio_and_validates_response(tmp_path):
         provider = RemoteAsrProvider(
             f"http://127.0.0.1:{server.server_port}/transcribe", token="test-token", timeout=2,
         )
-        assert provider.transcribe(audio) == [ROW]
+        assert provider.transcribe(audio) == __import__("indicmeet.contract", fromlist=["canonicalize"]).canonicalize([ROW])
         assert Handler.auth == "Bearer test-token"
     finally:
         server.shutdown()
