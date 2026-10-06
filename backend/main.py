@@ -225,6 +225,8 @@ def checked_media(path):
 @app.post("/meetings", status_code=202)
 async def create_meeting(request: Request, db: Session = Depends(get_db),
                          media_store: Storage = Depends(get_storage), queue: JobQueue = Depends(get_queue)):
+    if get_settings().demo_mode and __import__('os').environ.get('DEMO_PRECOMPUTED_ONLY','false').lower()=='true':
+        raise HTTPException(409,'Pre-computed demo accepts audited imports only; live processing is not connected')
     uploaded = await parse_upload(request, media_store, {"recording", "asr_json", "diarization_csv", "attendees_json"},
                                   {"title", "group", "date"})
     try:
@@ -357,7 +359,9 @@ def ready(db: Session = Depends(get_db), media_store: Storage = Depends(get_stor
 
 @app.get("/config")
 def public_config():
-    return {"demo_mode":get_settings().demo_mode,"max_upload_mb":get_settings().max_upload_mb,"import_mode":get_settings().asr_mode=="import"}
+    settings=get_settings()
+    import os
+    return {"demo_mode":settings.demo_mode,"max_upload_mb":settings.max_upload_mb,"import_mode":settings.asr_mode=="import",'app_env':settings.app_env,'deploy_profile':os.environ.get('DEPLOY_PROFILE',''),'precomputed_only':settings.demo_mode and os.environ.get('DEMO_PRECOMPUTED_ONLY','false').lower()=='true'}
 
 @app.post("/auth/login")
 async def login(request: Request, db: Session=Depends(get_db)):

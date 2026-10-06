@@ -7,6 +7,7 @@ x-app: &app
       required: false
   environment: &environment
     DEMO: ${DEMO:-false}
+    DEMO_PRECOMPUTED_ONLY: ${DEMO_PRECOMPUTED_ONLY:-false}
     APP_ENV: ${APP_ENV:-production}
     DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL or select .env.demo.example}
     INDICMEET_DATA_DIR: /var/lib/indicmeet

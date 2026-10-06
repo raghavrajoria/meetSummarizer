@@ -6,7 +6,7 @@ def main():
     folder=pathlib.Path(tempfile.mkdtemp(prefix="indicmeet-release-proof-"));clone=folder/"repo"
     logdir=folder/"evidence";logdir.mkdir()
     environment=dict(os.environ)
-    environment.update(DEMO="true",APP_ENV="demo",DEMO_MODE="false",ASR_MODE="import",GROQ_API_KEY="",HF_TOKEN="",HUGGINGFACE_TOKEN="",API_TOKENS="",AUTH_USERS_JSON="",MEDIA_SIGNING_SECRET="local-proof-signing-secret-at-least-32-characters",API_PORT="8000",WORKER_PORT="8081",FRONTEND_PORT="8080",E2E_BASE_URL="http://127.0.0.1:8080")
+    environment.update(DEMO_PRECOMPUTED_ONLY="false",DEMO="true",APP_ENV="demo",DEMO_MODE="false",ASR_MODE="import",GROQ_API_KEY="",HF_TOKEN="",HUGGINGFACE_TOKEN="",API_TOKENS="",AUTH_USERS_JSON="",MEDIA_SIGNING_SECRET="local-proof-signing-secret-at-least-32-characters",API_PORT="8000",WORKER_PORT="8081",FRONTEND_PORT="8080",E2E_BASE_URL="http://127.0.0.1:8080")
     for name in ("DATABASE_URL","REDIS_URL","S3_ENDPOINT_URL","S3_ACCESS_KEY","S3_SECRET_KEY","STORAGE_BACKEND"):
         environment.pop(name,None)
     environment["INDICMEET_DATA_DIR"]=str(folder/"runtime")
