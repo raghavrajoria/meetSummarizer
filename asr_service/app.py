@@ -73,6 +73,8 @@ def create_app(*,model=None,root=None,token=None,probe=probe_wav,max_duration=No
                         if set(turn)!={'start','end','speaker'} or not isinstance(turn['start'],(int,float)) or not isinstance(turn['end'],(int,float)) or isinstance(turn['start'],bool) or isinstance(turn['end'],bool) or not isinstance(turn['speaker'],str) or not turn['speaker'] or not 0<=float(turn['start'])<=float(turn['end'])<=duration:raise ValueError()
                         if not math.isfinite(float(turn['start'])) or not math.isfinite(float(turn['end'])):raise ValueError()
                 except (ValueError,TypeError,KeyError):raise HTTPException(422,"Invalid recording-relative turns") from None
+            if os.environ.get('ASR_DEVICE')=='cpu' and not parsed:
+                raise HTTPException(422,'CPU ASR requires nonempty request turns; pyannote is never run on CPU')
             digest.update(json.dumps(parsed,sort_keys=True,separators=(',',':')).encode())
             try:jid=store.submit(file,parsed,key,digest.hexdigest())
             except ValueError:raise HTTPException(409,"Idempotency-Key request conflict") from None

@@ -52,6 +52,9 @@ class RemoteAsrProvider:
 
     def transcribe(self,audio_path:Path,*,asr_json_path=None,turns=None,sync=False):
         del asr_json_path
+        if turns is not None:
+            # CSV readers may carry private idx fields; v2 accepts exactly these keys.
+            turns=[{key:turn[key] for key in ('start','end','speaker')} for turn in turns]
         context=remote_context.get();scope=audio_path.name
         state=context.load(scope) if context else None
         def save(value):

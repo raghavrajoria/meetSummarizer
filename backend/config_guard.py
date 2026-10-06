@@ -7,8 +7,17 @@ def unsafe(value):
     low=value.lower()
     return any(word in low for word in ('demo','change-me','changeme','replace-me','default','minioadmin','password','your-secret','example-secret','test-signing','local-proof')) or len(value)<16 or len(set(value))<8
 
+def allowed_transport(value, local_real=False):
+    parsed=urlparse(value)
+    if parsed.username or parsed.password or not parsed.hostname:return False
+    return parsed.scheme=='https' or (local_real and parsed.scheme=='http' and parsed.hostname in {'127.0.0.1','localhost','host.docker.internal'})
+
 def validate_app_configuration():
     settings=get_settings();errors=[]
+    profile=os.environ.get('DEPLOY_PROFILE','').strip()
+    local_real=profile=='local-real'
+    if profile not in {'','local-real'}:errors.append('Unknown DEPLOY_PROFILE')
+    if local_real and (settings.app_env!='production' or settings.demo_mode):errors.append('local-real requires production and refuses demo')
     if settings.app_env not in {'production','development','demo'}:errors.append('APP_ENV must be production, development or demo')
     if os.environ.get('DEMO_MODE','false').lower()=='true':errors.append('DEMO_MODE is obsolete; demo requires explicit DEMO=true')
     if settings.app_env=='production' and settings.demo_mode:errors.append('Production refuses DEMO=true')
@@ -18,7 +27,7 @@ def validate_app_configuration():
     if settings.demo_mode and settings.app_env!='production' and not errors:return
     if settings.app_env=='production':
         if settings.asr_mode!='remote':errors.append('Production requires ASR_MODE=remote')
-        if not settings.asr_service_url or urlparse(settings.asr_service_url).scheme!='https':errors.append('Production requires HTTPS ASR_SERVICE_URL base URL')
+        if not settings.asr_service_url or not allowed_transport(settings.asr_service_url,local_real):errors.append('Production requires HTTPS ASR_SERVICE_URL base URL (local-real HTTP is loopback only)')
         if not settings.asr_service_token or unsafe(settings.asr_service_token):errors.append('Production requires private ASR_SERVICE_TOKEN')
         if not settings.groq_api_key or unsafe(settings.groq_api_key):errors.append('Production requires private GROQ_API_KEY')
         if os.environ.get('STORAGE_BACKEND')!='s3':errors.append('Production requires external S3 storage')
@@ -27,9 +36,9 @@ def validate_app_configuration():
         if unsafe(dbpassword):errors.append('DATABASE_URL password is missing/default/weak')
         for name in ('S3_ACCESS_KEY','S3_SECRET_KEY'):
             if unsafe(os.environ.get(name,'')):errors.append(name+' is missing/default/weak')
-        if os.environ.get('S3_ENDPOINT_URL') and urlparse(os.environ['S3_ENDPOINT_URL']).scheme!='https':errors.append('Production requires HTTPS S3_ENDPOINT_URL')
+        if os.environ.get('S3_ENDPOINT_URL') and not allowed_transport(os.environ['S3_ENDPOINT_URL'],local_real):errors.append('Production requires HTTPS S3_ENDPOINT_URL (local-real HTTP is loopback only)')
         if not os.environ.get('REDIS_URL'):errors.append('Production requires REDIS_URL')
-        if not settings.cors_origins or any(not origin.startswith('https://') for origin in settings.cors_origins):errors.append('Production requires exact HTTPS CORS_ORIGINS')
+        if not settings.cors_origins or any(not allowed_transport(origin,local_real) or urlparse(origin).path not in {'','/'} or urlparse(origin).query or urlparse(origin).fragment for origin in settings.cors_origins):errors.append('Production requires exact HTTPS CORS_ORIGINS (local-real HTTP is loopback only)')
         secret=os.environ.get('MEDIA_SIGNING_SECRET','')
         if len(secret)<32 or unsafe(secret):errors.append('MEDIA_SIGNING_SECRET is missing/default/weak')
         try:

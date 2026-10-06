@@ -44,6 +44,7 @@ class JobStore:
             if not job:return None
             body={k:job[k] for k in ("status","progress","stage")}
             if job["status"]=="done":body["result"]=job["result"]
+            if 'metrics' in job:body['metrics']=job['metrics']
             if job["status"]=="failed":body["error"]=job["error"]
             return body
 
@@ -78,10 +79,13 @@ class JobStore:
                 progress(1,"starting")
                 result=client_segments(self.model.transcribe(self.root/jid/"audio.wav",self.jobs[jid]["turns"],progress))
                 if any(row["asr"]["model_version"]!=self.model.model_version for row in result):raise ValueError("Model version mismatch")
-                with self.lock:self.jobs[jid].update(status="done",progress=100,stage="done",result=result,completed=self.clock());self._persist(self.jobs[jid])
+                with self.lock:self.jobs[jid].update(status="done",progress=100,stage="done",result=result,metrics=getattr(self.model,'last_metrics',{}),completed=self.clock());self._persist(self.jobs[jid])
                 logger.info("asr_done job_id=%s elapsed=%.3f model=%s",jid,time.monotonic()-started,self.model.model_version)
             except Exception as exc:
-                self.unavailable=isinstance(exc,(ImportError,RuntimeError))
-                with self.lock:self.jobs[jid].update(status="failed",stage="failed",error={"code":"MODEL_UNAVAILABLE" if self.unavailable else "PROCESSING_FAILED","detail":"ASR processing failed; inspect private host diagnostics"},completed=self.clock());self._persist(self.jobs[jid])
+                logger.exception('ASR host diagnostics job_id=%s', jid)
+                from .memory import MemorySafetyError
+                self.unavailable=isinstance(exc,(ImportError,RuntimeError)) and not isinstance(exc,MemorySafetyError)
+                detail=str(exc) if isinstance(exc,MemorySafetyError) else "ASR processing failed; inspect private host diagnostics"
+                with self.lock:self.jobs[jid].update(status="failed",stage="failed",metrics=getattr(self.model,'last_metrics',{}),error={"code":"RAM_SAFETY_ABORT" if isinstance(exc,MemorySafetyError) else "MODEL_UNAVAILABLE" if self.unavailable else "PROCESSING_FAILED","detail":detail},completed=self.clock());self._persist(self.jobs[jid])
                 logger.error("asr_failed job_id=%s elapsed=%.3f exception_type=%s",jid,time.monotonic()-started,type(exc).__name__)
             finally:self.queue.task_done()

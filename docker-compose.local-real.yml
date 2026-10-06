@@ -1,0 +1,32 @@
+name: indicmeet-local-real
+services:
+  db:
+    image: postgres:16.6-bookworm
+    mem_limit: 384m
+    environment:
+      POSTGRES_USER: indicmeet
+      POSTGRES_DB: indicmeet
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Private credential required}
+    ports: ['127.0.0.1:55432:5432']
+    volumes: [local-real-db:/var/lib/postgresql/data]
+    healthcheck: {test: [CMD-SHELL, 'pg_isready -U indicmeet -d indicmeet'], interval: 3s, timeout: 3s, retries: 30}
+  queue:
+    image: redis:7.4.2-alpine
+    mem_limit: 128m
+    command: [redis-server, --appendonly, 'yes', --requirepass, '${REDIS_PASSWORD:?Private credential required}']
+    ports: ['127.0.0.1:56379:6379']
+    volumes: [local-real-queue:/data]
+  minio:
+    build: deploy/minio
+    mem_limit: 512m
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:?Private credential required}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?Private credential required}
+    command: server /data --console-address :9001
+    ports: ['127.0.0.1:59000:9000']
+    volumes: [local-real-storage:/data]
+    healthcheck: {test: [CMD, curl, -f, http://localhost:9000/minio/health/live], interval: 3s, timeout: 3s, retries: 30}
+volumes:
+  local-real-db:
+  local-real-queue:
+  local-real-storage:

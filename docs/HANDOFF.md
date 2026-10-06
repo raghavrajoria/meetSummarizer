@@ -1,5 +1,19 @@
 # Handoff — release/complete
 
+## CPU acceptance run and GPU sizing — 2026-10-06
+
+See docs/REAL_RUN_EVIDENCE.md for measured results; do not claim completion from health checks or fixture tests. Public AGM input is data/recordings/hinglish_AGM_call.wav. No matching stored AGM turns were identified: the generic stored CSV ends at2252s, AGM WAV at1200s. Clip generation falls back to Silero VAD and labels every turn VAD_SINGLE_SPEAKER; this does not test speaker diarization.
+
+Native Windows CPU is attempted first. `python scripts/generate_local_real_config.py` generates ignored .env.local-real without displaying secrets, copies existing Groq/HF keys, sets explicit local-real profile and validates production safety. Start isolated PostgreSQL/Redis/MinIO with `docker compose -f docker-compose.local-real.yml --env-file .env.local-real up -d --wait`. No volumes are removed. Then `python scripts/run_real_local.py` starts native ASR/API/worker, after storage initialization/migrations; native frontend is `npm run dev`.
+
+`scripts/make_test_clip.ps1 -Source data/recordings/hinglish_AGM_call.wav -Start 870 -Duration 30 -Out data/local-real/agm-30.wav`; use Start840 Duration300 for the longer clip (840–1140s includes the validated870–990s window). Pass -DiarizationCsv only when its AGM provenance is established. `python scripts/run_real_local.py --preflight data/local-real/agm-30.wav` performs ASR-only preflight; then run `scripts/real_pipeline_check.py --url http://127.0.0.1:8000 --audio data/local-real/agm-300.wav --turns data/local-real/agm-300.turns.csv --source-start 840` for the real authenticated upload path.
+
+Groq free tier/no billing explicitly confirmed by owner. Config caps24 actual HTTP attempts per worker process and2 attempts per call; use only one five-minute clip for live Groq. Restarting worker resets process-local cap: do not restart to evade it. Thirty-second preflight does not call Groq. Existing LLM cache remains private. Report partial/failed enrichment separately; never label fake summary as real.
+
+If Windows IndicConformer cannot load, fallback requires separate Linux CPU environment/container, memory limit and preserved3GiB Windows headroom. Suggested WSL2 settings for native inference plus lightweight containers are `[wsl2] memory=2GB processors=2 swap=0`; for CPU inference inside WSL, use a dedicated `memory=8GB processors=2 swap=0` with container `--memory=7g --memory-swap=7g`, and verify Windows available RAM still exceeds3GiB. These are starting limits, not proof of fit. Editing %USERPROFILE%/.wslconfig and restarting WSL affects running distributions: do not do it silently. The watchdog must observe Windows host RAM for a container fallback, not only Linux free memory. No fallback was validated merely by documenting these settings.
+
+Minimum recommended GPU: **one16GB NVIDIA T4, estimate based only on earlier Colab runs reported by the owner, not proven by this release or CPU run**. Run `python scripts/gpu_sizing_probe.py --inputs five.wav thirty.wav sixty.wav --turns five.csv thirty.csv sixty.csv --output sizing.json` on the ASR host to settle actual peak and throughput. It loads the configured GPU models, measures5/30/60-minute inputs, peak process RAM, real-time factor and torch.cuda.max_memory_allocated. PyTorch counters exclude CTranslate2/ONNX memory; sampled nvidia-smi device-wide memory is included and may include other processes. CPU small-model results cannot establish CUDA image compatibility, GPU speed, large-v3 accuracy or diarization accuracy.
+
 ## Page 1 — DevOps checklist
 
 Read README.md, docs/DEVOPS.md, docs/ENVIRONMENT.md, docker-compose.prod.example.yml, DECISIONS.md and docs/FINISHING_EVIDENCE.md. The application demo is verified; public hosting and real-model acceptance are not.

@@ -99,3 +99,30 @@ Options: Ignore all tooling / track source and exclude generated output.
 Chosen: eval/score_wer.py, deploy/ and scripts/ are source and remain tracked. eval/results and caches ignored; the entire colab/ directory is local notebook/generated artifact storage and remains ignored; approved tiny fixtures remain tracked. Add explicit colab output rules and ASR state ignore; .env.demo.example is an intentional public configuration exception.
 Why: A clone needs evaluation/deployment/check tooling, not retained media, credentials, model weights or notebook output.
 Reversible: yes
+# 2026-10-06 Public CPU run and explicit local-real deployment
+Context: Owner explicitly requested real CPU inference despite older workstation guidance, with public AGM content only and 3 GiB free RAM headroom. Existing production policy required externally hosted HTTPS services.
+Options: weaken production/defaults / explicit narrowly scoped local-real profile.
+Chosen: APP_ENV=production, DEMO=false, DEPLOY_PROFILE=local-real; HTTP allowed only for exact 127.0.0.1, localhost, host.docker.internal hosts for ASR, CORS and the compose-provided MinIO endpoint. All other secret/auth/storage/database/fake/demo checks retained. Dedicated compose infrastructure has private random credentials and loopback ports.
+Why: The owner approved the explicit local profile; MinIO must also use the same exact-host exception for local S3 to work. Never reuse this profile on public deployment.
+Reversible: yes
+
+# 2026-10-06 Sequential isolated CPU passes and memory watchdog
+Context: i5-1334U, 15.7 GB RAM, no GPU; model loading previously crashed. CPU request explicitly supersedes AGENTS.md section 2 restriction for this public test.
+Options: eager resident models / sequential whole-clip model passes in killable subprocess.
+Chosen: Native Windows first; Whisper small int8, MMS-LID CPU, IndicConformer CPU, models released between passes; check available RAM before loads and segments, independent parent samples RAM each second and terminates the model process tree below 3 GiB. Pyannote never runs in CPU mode; request turns required. Two CPU threads default.
+Why: Sequential whole-clip passes avoid reloading models per segment and retain the existing routing logic. Native compatibility and actual memory remain acceptance conditions. Linux fallback only if IndicConformer fails on Windows, not as an excuse to lower the headroom.
+Reversible: yes
+
+# 2026-10-06 Speaker-name provenance and owner-name evidence
+Context: Owner requested demo-fixture name audit before real models. Imported names lacked provenance; inferred action-owner basis was lost in UI and reply evidence was missing from citations.
+Options: leave display ambiguous / additive provenance and owner evidence.
+Chosen: Owner-authorized speaker_name_source=attendee_list|inferred|none; unproven imports inferred, null names none. Preserve owner_name_source and owner_source_segment_ids, include name-bearing segments in action citations, display inferred in transcript/actions.
+Why: An attendee spelling match alone does not verify identity. Demo has no names/actions; focused synthetic tests cover that missing behavior separately.
+Reversible: yes
+
+## 2026-10-06 Precomputed real-recording demo
+Context: Owner requests existing real outputs only, with honest source attribution and no new model calls.
+Options: Fixture simulation / import audited stored results.
+Chosen: Separate indicmeet-precomputed Compose project; demo-only idempotent loader; refuse live uploads; cached Scrum Groq only; missing summaries explicit.
+Why: Excludes fake/reference data, avoids old demo-volume contamination and preserves production behavior. Owner-stated Kaggle provenance explicitly distinguished from artifact proof. Full226-row group replaces exactly matching19-row excerpt; estimated ends marked, speakers anonymous. Scrum staged action items identified as simulated, Whisper methods do not prove IndicConformer execution.
+Reversible: yes
