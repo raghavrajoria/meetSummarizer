@@ -25,6 +25,7 @@ class Segment(BaseModel):
     end: float = Field(ge=0, allow_inf_nan=False)
     speaker: str = Field(min_length=1)
     speaker_name: str | None = None
+    speaker_name_source: Literal['attendee_list', 'inferred', 'none'] = 'none'
     language: str = Field(min_length=2)
     text_native: str
     text_roman: str | None = None
@@ -35,6 +36,10 @@ class Segment(BaseModel):
 
     @model_validator(mode="after")
     def time_order(self):
+        if self.speaker_name and self.speaker_name_source == 'none':
+            self.speaker_name_source = 'inferred'
+        elif not self.speaker_name:
+            self.speaker_name_source = 'none'
         if self.language not in ISO_639_1 | {"mul", "und"}:
             raise ValueError("Language must be ISO 639-1, mul or und")
         if self.language in {"mul", "und"} and self.quality != "review":
@@ -115,6 +120,9 @@ def canonicalize(data: Any) -> list[dict]:
             segment["quality"] = "review"
             if "unresolved_language" not in segment["reasons"]: segment["reasons"].append("unresolved_language")
         segment["asr"].setdefault("model_version", "legacy-import-unversioned")
+        segment.setdefault('speaker_name_source', row.get('speaker_name_source', 'inferred' if segment.get('speaker_name') else 'none'))
+        if not segment.get('speaker_name'):
+            segment['speaker_name_source'] = 'none'
         segment = Segment.model_validate(segment).model_dump()
         if segment["segment_id"] in seen:
             raise ValueError("Duplicate canonical segment ID")

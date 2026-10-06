@@ -57,7 +57,9 @@ def name_clusters(segments,source):
             key=(row["speaker"],turn.speaker); scores[key]=scores.get(key,0)+score
     for row in output:
         choices=sorted([(score,identity) for (speaker,identity),score in scores.items() if speaker==row["speaker"] and score>0],reverse=True)
-        if choices and (len(choices)==1 or choices[0][0]>choices[1][0]): row["speaker_name"]=source.names[choices[0][1]]
+        if choices and (len(choices)==1 or choices[0][0]>choices[1][0]):
+            row["speaker_name"]=source.names[choices[0][1]]
+            row['speaker_name_source']='inferred'
     return output
 
 
@@ -70,5 +72,6 @@ def transcribe_tracks(tracks,provider,extract_audio,temporary,duration,names):
         segments=canonicalize(provider.transcribe(wav,turns=[{"start":0.,"end":duration,"speaker":identity}]))
         for row in segments:
             row["speaker"]=identity;row["speaker_name"]=names.get(identity)
+            row['speaker_name_source']='attendee_list' if row['speaker_name'] else 'none'
             rows.append(row)
     return reidentify(sorted(rows,key=lambda s:(s["start"],s["speaker"])))

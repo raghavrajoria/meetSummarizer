@@ -71,3 +71,6 @@ curl -fsS -H "Authorization: Bearer $ASR_SERVICE_TOKEN" "$ASR_SERVICE_URL/jobs/J
 curl -fsS -H "Authorization: Bearer $ASR_SERVICE_TOKEN" -F 'audio=@/tmp/fixture.wav;type=audio/wav' "$ASR_SERVICE_URL/transcribe?sync=true"
 ```
 Contract client check: python scripts/asr_contract_smoke.py --url "$ASR_SERVICE_URL" --audio /tmp/fixture.wav. This uses the actual v2 RemoteAsrProvider. Default tests use local fake servers/models, not the GPU host. Host reverse proxy must also enforce upload limits, TLS and private access; never enable URL/header/transcript access logging.
+# Additive speaker-name provenance (owner authorized 2026-10-06)
+
+Canonical segments include speaker_name_source: attendee_list | inferred | none. Missing provenance on a non-null imported speaker_name is conservatively inferred; null names are none. An attendee list provides spelling/identity metadata, not proof that a diarization cluster belongs to that name. Action intelligence separately includes owner_name_source and owner_source_segment_ids; name-bearing transcript evidence joins task citations. Existing IDs/native text/quality rules are unchanged.

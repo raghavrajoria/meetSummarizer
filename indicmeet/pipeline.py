@@ -305,6 +305,7 @@ def _session_payload(session_id: str, title: str, kind: str, media_name: str,
             "role": "Participant" if index < len(attendee_names) else "Unidentified speaker",
             "confidence": "unverified",
             "verified": False,
+            "speaker_name_source": "attendee_list" if index < len(attendee_names) else "none",
             "join": _clock(min(float(item.get("start", 0)) for item in spans)),
             "leave": _clock(max(float(item.get("end", item.get("start", 0))) for item in spans)),
         })
@@ -333,7 +334,9 @@ def _session_payload(session_id: str, title: str, kind: str, media_name: str,
             output.append({"text": item.get(label) or item.get("text") or item.get("q") or "",
                            "source_segment_ids": [e["segmentId"] for e in ev],
                            "verified": not bool(item.get("unverified")), "evidence": ev,
-                           **({"owner": item.get("owner"), "due": item.get("due")} if "owner" in item else {})})
+                           **({"owner": item.get("owner"), "due": item.get("due"),
+                               "owner_name_source": item.get("owner_name_source", "inferred" if item.get("owner") else "none"),
+                               "owner_source_segment_ids": item.get("owner_source_segment_ids", [])} if "owner" in item else {})})
         return output
 
     intelligence = {

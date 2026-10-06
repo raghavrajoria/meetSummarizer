@@ -25,6 +25,7 @@ TEMPERATURE = _settings.groq_temperature
 REQUEST_TIMEOUT_S = _settings.groq_request_timeout_seconds
 SUMMARY_PROMPT_VERSION = 1
 _window = []  # (timestamp, tokens) rolling 60s budget
+_live_attempts = 0
 
 def ntok(t): return len(t) // 3 + 1
 
@@ -54,8 +55,13 @@ def _call_llm_raw(system, user, max_out, key, warn):
     """One request -> (parsed JSON or None, reason). Never retries with a bigger budget."""
     need = ntok(system) + ntok(user) + max_out
     shown = False
-    for _ in range(6):
+    global _live_attempts
+    for _ in range(int(os.environ.get('GROQ_MAX_ATTEMPTS', '6'))):
+        cap=int(os.environ.get('GROQ_MAX_LIVE_CALLS','0'))
+        if cap and _live_attempts>=cap:
+            raise RuntimeError('Groq live request cap reached; stop this run')
         _wait(need)
+        _live_attempts += 1
         try:
             r = requests.post(URL, headers={"Authorization": f"Bearer {key}"}, timeout=REQUEST_TIMEOUT_S,
                 json={"model": MODEL, "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
@@ -266,6 +272,8 @@ def name_check(text, ev, segs, pos, hints, variants):
 def finish_action(a, segs, pos, canon, known, warn):
     """Owner: from another speaker's reply ('thanks, <name>'), else LLM owner only if the name is in nearby text. Due: only if said nearby."""
     a["owner_basis"] = None
+    a['owner_name_source'] = 'none'
+    a['owner_name_ev'] = []
     last = max(pos[e] for e in a["ev"]); who = segs[last]["spk"]
     if known:
         for p in range(last + 1, min(last + 4, len(segs))):
@@ -273,7 +281,11 @@ def finish_action(a, segs, pos, canon, known, warn):
             for w in REPLY.findall(segs[p]["text"]):
                 if len(w) < 2: continue
                 name, ok = canon(w)
-                if ok: a["owner"], a["owner_basis"] = name, "addressed in reply by another speaker"; break
+                if ok:
+                    a["owner"], a["owner_basis"] = name, "addressed in reply by another speaker"
+                    a['owner_name_ev'] = [segs[p]['idx']]
+                    a['owner_name_source'] = 'inferred'
+                    break
             if a["owner_basis"]: break
     words = set(re.findall(r"[a-z']+", ctx_text(a["ev"], segs, pos, 0, 2).lower()))
     if not a["owner_basis"]:
@@ -282,6 +294,9 @@ def finish_action(a, segs, pos, canon, known, warn):
             name, _ = canon(owner)
             if any(difflib.SequenceMatcher(None, c, w).ratio() >= 0.7 for c in {owner.lower(), name.lower()} for w in words):
                 a["owner"], a["owner_basis"] = name, "name appears in nearby transcript"
+                near = sorted({p for e in a['ev'] for p in range(pos[e], min(len(segs), pos[e]+3))})
+                a['owner_name_ev'] = [segs[p]['idx'] for p in near if any(difflib.SequenceMatcher(None, c, w).ratio() >= .7 for c in {owner.lower(), name.lower()} for w in re.findall(r"[a-z']+", segs[p]['text'].lower()))]
+                a['owner_name_source'] = 'inferred'
             else:
                 warn(f"owner '{owner}' not in nearby text, set to null: {a['task'][:60]}"); a["owner"] = None
         else:
@@ -419,6 +434,9 @@ def summarize(asr, attendees=None, aliases=None, api_key=None, log=print, use_hi
     for key in FIELDS:
         for item in result[key]:
             item["source_segment_ids"] = [ids[ref] for ref in item.get("ev", []) if ref in ids]
+            if key == 'action_items':
+                item['owner_source_segment_ids'] = [ids[ref] for ref in item.get('owner_name_ev', []) if ref in ids]
+                item['source_segment_ids'] = list(dict.fromkeys(item['source_segment_ids'] + item['owner_source_segment_ids']))
     claims = []
     for key in ("key_discussion", "decisions", "action_items", "concerns"):
         for item in result[key]:

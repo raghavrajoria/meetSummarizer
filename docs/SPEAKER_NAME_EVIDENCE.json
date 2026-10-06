@@ -1,0 +1,325 @@
+{
+  "id": "speaker-audit",
+  "title": "Demo name audit",
+  "group": "",
+  "date": "",
+  "dateLabel": "Date not recorded",
+  "time": "",
+  "kind": "audio",
+  "media": "demo.mp4",
+  "status": "processed",
+  "summary": "These would be the five major parameters, all of equal importance. So guys, the topic for the discussion today will be skills or degree. Is degree just a myth?.",
+  "summaryData": {
+    "overview": "These would be the five major parameters, all of equal importance. So guys, the topic for the discussion today will be skills or degree. Is degree just a myth?.",
+    "key_discussion": [
+      {
+        "point": "These would be the five major parameters, all of equal importance.",
+        "ev": [
+          0
+        ],
+        "at": [
+          "0:00"
+        ],
+        "source_segment_ids": [
+          "seg_0dcd73242d5442a88626"
+        ]
+      },
+      {
+        "point": "So guys, the topic for the discussion today will be skills or degree. Is degree just a myth?",
+        "ev": [
+          1
+        ],
+        "at": [
+          "0:05"
+        ],
+        "source_segment_ids": [
+          "seg_e3a72a4396f865b32338"
+        ]
+      }
+    ],
+    "decisions": [],
+    "follow_ups": [],
+    "questions": [],
+    "concerns": [],
+    "action_items": [],
+    "name_normalizations": [],
+    "speaker_hints": {},
+    "uncovered_candidates": [],
+    "failed_chunks": [],
+    "warnings": [],
+    "stats": {
+      "segments": 3,
+      "chunks": 1,
+      "labels_replaced": 0,
+      "commit_candidates": 0,
+      "cache_hits": 0,
+      "api_calls": 0
+    },
+    "overview_claims": [
+      {
+        "text": "These would be the five major parameters, all of equal importance.",
+        "source_segment_ids": [
+          "seg_0dcd73242d5442a88626"
+        ]
+      },
+      {
+        "text": "So guys, the topic for the discussion today will be skills or degree. Is degree just a myth?",
+        "source_segment_ids": [
+          "seg_e3a72a4396f865b32338"
+        ]
+      }
+    ]
+  },
+  "participants": [
+    {
+      "id": "SPEAKER_01",
+      "name": "SPEAKER_01",
+      "role": "Unidentified speaker",
+      "confidence": "unverified",
+      "verified": false,
+      "speaker_name_source": "none",
+      "join": "00:00",
+      "leave": "00:10"
+    },
+    {
+      "id": "SPEAKER_11",
+      "name": "SPEAKER_11",
+      "role": "Unidentified speaker",
+      "confidence": "unverified",
+      "verified": false,
+      "speaker_name_source": "none",
+      "join": "00:05",
+      "leave": "00:10"
+    }
+  ],
+  "speakers": [
+    {
+      "id": "SPEAKER_01",
+      "name": "SPEAKER_01",
+      "role": "Unidentified speaker",
+      "confidence": "unverified",
+      "verified": false,
+      "speaker_name_source": "none",
+      "join": "00:00",
+      "leave": "00:10"
+    },
+    {
+      "id": "SPEAKER_11",
+      "name": "SPEAKER_11",
+      "role": "Unidentified speaker",
+      "confidence": "unverified",
+      "verified": false,
+      "speaker_name_source": "none",
+      "join": "00:05",
+      "leave": "00:10"
+    }
+  ],
+  "transcript": [
+    {
+      "segment_id": "seg_0dcd73242d5442a88626",
+      "start": 0.0,
+      "end": 5.0,
+      "speaker": "SPEAKER_01",
+      "speaker_name": null,
+      "speaker_name_source": "none",
+      "language": "en",
+      "text_native": "These would be the five major parameters, all of equal importance.",
+      "text_roman": null,
+      "text_english": null,
+      "quality": "accepted",
+      "reasons": [],
+      "asr": {
+        "model_version": "legacy-import-unversioned",
+        "method": "stored_demo",
+        "whisper_lang": null,
+        "whisper_lang_conf": null,
+        "mms_lang": null,
+        "mms_lang_conf": null,
+        "confidence": null
+      }
+    },
+    {
+      "segment_id": "seg_e3a72a4396f865b32338",
+      "start": 5.0,
+      "end": 10.0,
+      "speaker": "SPEAKER_11",
+      "speaker_name": null,
+      "speaker_name_source": "none",
+      "language": "en",
+      "text_native": "So guys, the topic for the discussion today will be skills or degree. Is degree just a myth?",
+      "text_roman": null,
+      "text_english": null,
+      "quality": "accepted",
+      "reasons": [],
+      "asr": {
+        "model_version": "legacy-import-unversioned",
+        "method": "stored_demo",
+        "whisper_lang": null,
+        "whisper_lang_conf": null,
+        "mms_lang": null,
+        "mms_lang_conf": null,
+        "confidence": null
+      }
+    },
+    {
+      "segment_id": "seg_b24497a3eaa2d1a3340e",
+      "start": 8.0,
+      "end": 10.0,
+      "speaker": "SPEAKER_01",
+      "speaker_name": null,
+      "speaker_name_source": "none",
+      "language": "hi",
+      "text_native": "But if the same thing happens in the actual GD, how would you manage? So just don't try to, you know, craft the statement in an absolutely proper way. Direction दिया group को, right? तो एक नया point लेकर आई, direction दिया, और दो बार बोला आपने, पर दोनों बार it was absolutely controlled and if you introduce the idea, if you're able to describe it a bit more.",
+      "text_roman": null,
+      "text_english": null,
+      "quality": "accepted",
+      "reasons": [],
+      "asr": {
+        "model_version": "legacy-import-unversioned",
+        "method": "stored_demo",
+        "whisper_lang": null,
+        "whisper_lang_conf": null,
+        "mms_lang": null,
+        "mms_lang_conf": null,
+        "confidence": null
+      }
+    }
+  ],
+  "segments": [
+    {
+      "segment_id": "seg_0dcd73242d5442a88626",
+      "start": 0.0,
+      "end": 5.0,
+      "speaker": "SPEAKER_01",
+      "speaker_name": null,
+      "speaker_name_source": "none",
+      "language": "en",
+      "text_native": "These would be the five major parameters, all of equal importance.",
+      "text_roman": null,
+      "text_english": null,
+      "quality": "accepted",
+      "reasons": [],
+      "asr": {
+        "model_version": "legacy-import-unversioned",
+        "method": "stored_demo",
+        "whisper_lang": null,
+        "whisper_lang_conf": null,
+        "mms_lang": null,
+        "mms_lang_conf": null,
+        "confidence": null
+      }
+    },
+    {
+      "segment_id": "seg_e3a72a4396f865b32338",
+      "start": 5.0,
+      "end": 10.0,
+      "speaker": "SPEAKER_11",
+      "speaker_name": null,
+      "speaker_name_source": "none",
+      "language": "en",
+      "text_native": "So guys, the topic for the discussion today will be skills or degree. Is degree just a myth?",
+      "text_roman": null,
+      "text_english": null,
+      "quality": "accepted",
+      "reasons": [],
+      "asr": {
+        "model_version": "legacy-import-unversioned",
+        "method": "stored_demo",
+        "whisper_lang": null,
+        "whisper_lang_conf": null,
+        "mms_lang": null,
+        "mms_lang_conf": null,
+        "confidence": null
+      }
+    },
+    {
+      "segment_id": "seg_b24497a3eaa2d1a3340e",
+      "start": 8.0,
+      "end": 10.0,
+      "speaker": "SPEAKER_01",
+      "speaker_name": null,
+      "speaker_name_source": "none",
+      "language": "hi",
+      "text_native": "But if the same thing happens in the actual GD, how would you manage? So just don't try to, you know, craft the statement in an absolutely proper way. Direction दिया group को, right? तो एक नया point लेकर आई, direction दिया, और दो बार बोला आपने, पर दोनों बार it was absolutely controlled and if you introduce the idea, if you're able to describe it a bit more.",
+      "text_roman": null,
+      "text_english": null,
+      "quality": "accepted",
+      "reasons": [],
+      "asr": {
+        "model_version": "legacy-import-unversioned",
+        "method": "stored_demo",
+        "whisper_lang": null,
+        "whisper_lang_conf": null,
+        "mms_lang": null,
+        "mms_lang_conf": null,
+        "confidence": null
+      }
+    }
+  ],
+  "intelligence": {
+    "discussed": "These would be the five major parameters, all of equal importance. So guys, the topic for the discussion today will be skills or degree. Is degree just a myth?.",
+    "overviewClaims": [
+      {
+        "text": "These would be the five major parameters, all of equal importance.",
+        "source_segment_ids": [
+          "seg_0dcd73242d5442a88626"
+        ],
+        "evidence": [
+          {
+            "segmentId": "seg_0dcd73242d5442a88626",
+            "t": 0.0,
+            "time": "00:00"
+          }
+        ]
+      },
+      {
+        "text": "So guys, the topic for the discussion today will be skills or degree. Is degree just a myth?",
+        "source_segment_ids": [
+          "seg_e3a72a4396f865b32338"
+        ],
+        "evidence": [
+          {
+            "segmentId": "seg_e3a72a4396f865b32338",
+            "t": 5.0,
+            "time": "00:05"
+          }
+        ]
+      }
+    ],
+    "keyDiscussion": [
+      {
+        "text": "These would be the five major parameters, all of equal importance.",
+        "source_segment_ids": [
+          "seg_0dcd73242d5442a88626"
+        ],
+        "verified": true,
+        "evidence": [
+          {
+            "segmentId": "seg_0dcd73242d5442a88626",
+            "t": 0.0,
+            "time": "00:00"
+          }
+        ]
+      },
+      {
+        "text": "So guys, the topic for the discussion today will be skills or degree. Is degree just a myth?",
+        "source_segment_ids": [
+          "seg_e3a72a4396f865b32338"
+        ],
+        "verified": true,
+        "evidence": [
+          {
+            "segmentId": "seg_e3a72a4396f865b32338",
+            "t": 5.0,
+            "time": "00:05"
+          }
+        ]
+      }
+    ],
+    "decisions": [],
+    "actionItems": [],
+    "followUps": [],
+    "questions": [],
+    "concerns": []
+  }
+}
