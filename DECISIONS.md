@@ -126,3 +126,17 @@ Options: Fixture simulation / import audited stored results.
 Chosen: Separate indicmeet-precomputed Compose project; demo-only idempotent loader; refuse live uploads; cached Scrum Groq only; missing summaries explicit.
 Why: Excludes fake/reference data, avoids old demo-volume contamination and preserves production behavior. Owner-stated Kaggle provenance explicitly distinguished from artifact proof. Full226-row group replaces exactly matching19-row excerpt; estimated ends marked, speakers anonymous. Scrum staged action items identified as simulated, Whisper methods do not prove IndicConformer execution.
 Reversible: yes
+
+## 2026-10-06 Restore owner HTML layout with connected React workflows
+Context: Owner supplied original UI screenshots, requested only meeting count/time statistics and readable speaker names.
+Options: Keep simplified React scaffolding / restore original design-system markup and screenshot layout.
+Chosen: Original meetReaderCB shell, account footer, login, Overview/library rows and separate meeting Overview/Transcript panels. All content still fetched via existing authenticated API; selected view persisted in URL.
+Why: Restores the requested presentation without substituting screenshot fixture content. Audited Scrum names use transcript references and inferred labels; unknown speakers get deterministic demo aliases, explicitly marked. Canonical IDs, original transcript and production identity behavior unchanged. PostgreSQL query verified payload transcript counts4/156/226; media stays in MinIO.
+Reversible: yes
+
+## 2026-10-07 Simplify demo transcript and align recording filters
+Context: Owner requests removal of Both/Original/Roman/English controls and unused top search icon.
+Options: Keep multi-view controls / show original transcript once.
+Chosen: Original text only in transcript UI, with search/copy/download retained; removed top search icon; meeting search and date controls share an aligned responsive toolbar.
+Why: Removes duplicate English lines and aligns recording controls without changing stored transcript/enrichment or API behavior.
+Reversible: yes

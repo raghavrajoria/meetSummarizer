@@ -9,6 +9,8 @@ test('real precomputed meetings play, seek, expose tabs and honest provenance',a
  for(const id of ['real-scrum','real-agm-cpu-30','real-group-discussion-full']){
   await page.goto('/meeting.html?id='+id);
   await expect(page.getByText(banner,{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Transcript',exact:true}).click();
+  await page.getByText('Recording provenance',{exact:true}).click();
   const media=page.locator('video,audio');
   await expect.poll(()=>media.evaluate(m=>m.readyState)).toBeGreaterThanOrEqual(2);
   await media.evaluate(m=>m.play());
@@ -17,16 +19,15 @@ test('real precomputed meetings play, seek, expose tabs and honest provenance',a
   const chip=page.locator('.transcript .evidence-chip').nth(1);
   await chip.click();
   await expect.poll(()=>media.evaluate(m=>m.currentTime)).toBeGreaterThan(1);
-  for(const tab of ['Native','Roman','English']){
-   await page.getByRole('button',{name:tab,exact:true}).click();
-   await expect(page.getByRole('button',{name:tab,exact:true})).toHaveAttribute('aria-pressed','true');
-  }
+  await expect(page.locator('.language-tabs')).toHaveCount(0);
+  await expect(page.locator('.t-en')).toHaveCount(0);
   if(id==='real-agm-cpu-30') await expect(page.getByText('30-second sample, single speaker label (no diarization)',{exact:false})).toBeVisible();
+  await page.getByRole('button',{name:'Overview',exact:true}).click();
   if(id!=='real-scrum'){
    await expect(page.getByText('summary not generated',{exact:true})).toBeVisible();
    await expect(page.locator('.summary-editor')).toHaveCount(0);
   }else await expect(page.getByText('Real pipeline output (Kaggle T4, late Sep 2026, owner-stated). Source: staged scrum demo; action items are simulated.',{exact:false})).toBeVisible();
-  evidence.push({id,...await media.evaluate(m=>({duration:m.duration,decodedPlayback:true,seekTime:m.currentTime,readyState:m.readyState})),tabs:['Native','Roman','English']});
+  evidence.push({id,...await media.evaluate(m=>({duration:m.duration,decodedPlayback:true,seekTime:m.currentTime,readyState:m.readyState})),transcriptView:'original'});
  }
  await writeFile('../data/demo_browser_evidence.json',JSON.stringify(evidence,null,2));
 });

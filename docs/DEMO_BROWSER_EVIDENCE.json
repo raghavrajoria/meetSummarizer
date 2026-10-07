@@ -3,36 +3,24 @@
     "id": "real-scrum",
     "duration": 1286.3,
     "decodedPlayback": true,
-    "seekTime": 6.318139,
+    "seekTime": 6.079949,
     "readyState": 4,
-    "tabs": [
-      "Native",
-      "Roman",
-      "English"
-    ]
+    "transcriptView": "original"
   },
   {
     "id": "real-agm-cpu-30",
     "duration": 30,
     "decodedPlayback": true,
-    "seekTime": 1.617124,
+    "seekTime": 1.473476,
     "readyState": 4,
-    "tabs": [
-      "Native",
-      "Roman",
-      "English"
-    ]
+    "transcriptView": "original"
   },
   {
     "id": "real-group-discussion-full",
     "duration": 2251.68,
     "decodedPlayback": true,
-    "seekTime": 5.562749,
+    "seekTime": 5.359657,
     "readyState": 4,
-    "tabs": [
-      "Native",
-      "Roman",
-      "English"
-    ]
+    "transcriptView": "original"
   }
 ]

@@ -4,12 +4,12 @@ import path from "node:path";
 test("demo login upload progress playback edit reload download and delete", async ({ page }) => {
   const errors=[];page.on("pageerror",e=>errors.push(e.message));
   await page.goto("/index.html");
-  await page.getByLabel("Username").fill("demo");
+  await page.getByLabel("Email or username").fill("demo");
   await page.getByLabel("Password").fill("wrong-password");
-  await page.getByRole("button",{name:"Sign in",exact:true}).click();
+  await page.getByRole("button",{name:"Sign In",exact:true}).click();
   await expect(page.getByRole("alert")).toContainText("Invalid username");
   await page.getByLabel("Password").fill("demo-password");
-  await page.getByRole("button",{name:"Sign in",exact:true}).click();
+  await page.getByRole("button",{name:"Sign In",exact:true}).click();
   await expect(page).toHaveURL(/dashboard.html/);
   await page.getByRole("link",{name:"Upload recording",exact:true}).first().click();
   const title=`E2E demo ${Date.now()}`;
@@ -21,19 +21,25 @@ test("demo login upload progress playback edit reload download and delete", asyn
   await expect(page.getByRole("heading",{name:"Processing meeting"})).toBeVisible();
   await expect(page).toHaveURL(/meeting.html\?id=/,{timeout:90000});
   await expect(page.getByRole("heading",{name:title})).toBeVisible();
+  await page.getByText("Recording provenance",{exact:true}).click();
+  await page.getByRole("button",{name:"Transcript",exact:true}).click();
   await expect(page.locator(".model-metadata")).toContainText("legacy-import-unversioned");
-  for(const name of ["Native","Roman","English"]){await page.getByRole("button",{name,exact:true}).click();await expect(page.getByRole("button",{name,exact:true})).toHaveAttribute("aria-pressed","true");}
+  await expect(page.locator('.language-tabs')).toHaveCount(0);
   await expect.poll(()=>page.locator("video").evaluate(v=>v.readyState)).toBeGreaterThan(0);
   await page.locator("video").evaluate(v=>v.play());
   await expect.poll(()=>page.locator("video").evaluate(v=>v.currentTime)).toBeGreaterThan(.1);
   await page.locator(".evidence-chip").filter({hasText:"0:05"}).first().click();
   await expect.poll(()=>page.locator("video").evaluate(v=>v.currentTime)).toBeGreaterThanOrEqual(5);
+  await page.getByRole("button",{name:"Overview",exact:true}).click();
+  await page.getByRole("button",{name:"Edit",exact:true}).click();
   const edited="Saved browser edit survives a page reload.";
   await page.getByLabel("Edit meeting summary").fill(edited);
   await page.getByRole("button",{name:"Save summary"}).click();
   await expect(page.getByRole("status")).toHaveText("Summary saved");
   await page.reload();
+  await page.getByRole("button",{name:"Edit",exact:true}).click();
   await expect(page.getByLabel("Edit meeting summary")).toHaveValue(edited);
+  await page.getByRole("button",{name:"Transcript",exact:true}).click();
   const downloadEvent=page.waitForEvent("download");
   await page.getByRole("button",{name:"Download transcript"}).click();
   const download=await downloadEvent;
@@ -66,11 +72,12 @@ test("real mixed transcript rows render mul und review badges without hiding tex
   expect(created.status()).toBe(201);
   await page.goto("/index.html");await page.evaluate(t=>sessionStorage.setItem("access_token",t),token);
   await page.goto(`/meeting.html?id=${mid}`);
+  await page.getByRole("button",{name:"Transcript",exact:true}).click();
   await expect(page.locator("article.t-line")).toHaveCount(2);
   for(let i=0;i<2;i++){
     const line=page.locator("article.t-line").nth(i);
     await expect(line.locator(".quality-badge")).toHaveText("review");
-    await expect(line.locator(".lang-pill")).toHaveText(i===0?"mul":"und");
+    await expect(line.locator(".lang-pill").filter({hasText:/^(mul|und)$/})).toHaveText(i===0?"mul":"und");
     await expect(line.locator("p")).toHaveText(rows[i].text_native);
   }
   expect(errors).toEqual([]);

@@ -2,7 +2,7 @@
 
 Open http://127.0.0.1:8080 and sign in as `demo`. The demo-only login details appear on the login page and are defined in backend/security.py; no password is reproduced here. Configuration: .env.demo.example. Compose project: indicmeet-precomputed. Stack remains running.
 
-Click Sign in, Meetings, Open meeting. Play the recording, click a transcript timestamp to seek, then switch Native / Roman / English. Missing translations are explicitly unavailable. Scrum has cached Groq claims and evidence links; AGM and group show exactly "summary not generated" with no empty editor or invented extraction placeholders.
+Click Sign in, Meetings, Open meeting. Play the recording, click a transcript timestamp to seek, the transcript shows original-language text once. Search, Copy and Download remain available. Scrum has cached Groq claims and evidence links; AGM and group show exactly "summary not generated" with no empty editor or invented extraction placeholders.
 
 | Meeting | Media duration | Transcript | Talking point / provenance |
 |---|---:|---:|---|
@@ -27,3 +27,7 @@ Not shown: live processing, GPU speed, CUDA deployment accuracy, large-v3 evalua
 Loader: three imports; second run three UNCHANGED, no extra meetings. Browser command: E2E_BROWSER_CHANNEL=msedge npm --prefix frontend run test:e2e -- precomputed-demo.spec.js;2 passed in12.1s. Every loaded recording decoded and played, timestamp seeking and three transcript tabs passed. Production-config banner absence passed. Measured playback evidence: data/demo_browser_evidence.json.
 
 Full Python suite: .venv\Scripts\python.exe -m pytest -q;167 passed,8 warnings in44.07s (including upload-guard regression). Ruff: all checks passed.
+
+## UI update — 2026-10-07
+
+Original screenshot layout restored with meetReaderCB branding, account footer, Overview/Meetings pages and separate Overview/Transcript panels. Dashboard shows only meeting count and time. Removed the unused top search icon and Both/Original/Roman/English controls. Recording search and date filters share an aligned responsive toolbar. Inferred Scrum names come from audited transcript references; unknown clusters receive deterministic display-only demo aliases, marked as such. Source transcript text, canonical speaker IDs and database records remain intact. Selected meeting view persists across refresh. UI workflows use the existing authenticated backend.
