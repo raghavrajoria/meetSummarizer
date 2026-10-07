@@ -11,6 +11,8 @@ def main():
         environment.pop(name,None)
     environment["INDICMEET_DATA_DIR"]=str(folder/"runtime")
     environment["INDICMEET_LLM_CACHE"]=str(folder/"llm-cache")
+    branch=subprocess.check_output(['git','branch','--show-current'],cwd=ROOT,text=True).strip()
+    if not branch: raise RuntimeError('Select a branch before fresh-clone verification')
     number=0
     def run(args,cwd,env=None):
         nonlocal number
@@ -22,7 +24,7 @@ def main():
         print(f"RESULT exit={result.returncode} seconds={time.monotonic()-started:.1f} log={log}",flush=True)
         if result.returncode:raise RuntimeError(f"Verification failed at command {number}: {log}")
     print(f"FRESH_PROOF_FOLDER={folder}",flush=True)
-    run(["git","clone","--no-local","--branch","release/complete",ROOT,clone],ROOT)
+    run(["git","clone","--no-local","--branch",branch,ROOT,clone],ROOT)
     run([sys.executable,"-m","venv",clone/".venv-backend"],clone)
     python=clone/".venv-backend"/("Scripts/python.exe" if os.name=="nt" else "bin/python")
     run([python,"-m","pip","install","-r","backend/requirements-dev.txt","-r","requirements-llm.txt"],clone)

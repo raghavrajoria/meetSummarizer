@@ -16,7 +16,7 @@ Minimum recommended GPU: **one16GB NVIDIA T4, estimate based only on earlier Col
 
 ## Page 1 — DevOps checklist
 
-Read README.md, docs/DEVOPS.md, docs/ENVIRONMENT.md, docker-compose.prod.example.yml, DECISIONS.md and docs/FINISHING_EVIDENCE.md. The application demo is verified; public hosting and real-model acceptance are not.
+Read README.md, docs/DEVOPS.md, docs/ENVIRONMENT.md, docker-compose.prod.example.yml, DECISIONS.md and docs/REPOSITORY_LAYOUT.md. The application demo is verified; public hosting and real-model acceptance are not.
 
 - [ ] Provide application/worker hosts, PostgreSQL DB, Redis queue, supported S3 storage/bucket, private secrets, domain/DNS and TLS.
 - [ ] Obtain teammate ASR HTTPS base URL/token implementing docs/ASR_API_CONTRACT.md v2, verify /healthz version and a completed upload result; configure polling/deadline.

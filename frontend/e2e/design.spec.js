@@ -12,6 +12,7 @@ test('aliases are stable, demo only, and do not change canonical identity',()=>{
 });
 
 test('original layout with real API data, names, search, summary edit and export',async({page,request})=>{
+ test.skip(process.env.E2E_REAL_DEMO!=='true','Requires approved owner-provided recordings and running precomputed demo');
  await page.setViewportSize({width:1280,height:800});
  await page.goto('/index.html');
  await expect(page.locator('.login-mark')).toHaveText('meetReaderCB');

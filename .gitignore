@@ -36,3 +36,10 @@ eval/results/
 
 # Entire local notebook/artifact workspace; canonical source lives elsewhere.
 colab/
+
+# Generated run reports belong in local evidence, not the application tree.
+docs/*EVIDENCE*.json
+docs/*EVIDENCE*.md
+docs/DEMO_INVENTORY.md
+
+.verification/

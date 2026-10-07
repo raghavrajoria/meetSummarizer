@@ -140,3 +140,10 @@ Options: Keep multi-view controls / show original transcript once.
 Chosen: Original text only in transcript UI, with search/copy/download retained; removed top search icon; meeting search and date controls share an aligned responsive toolbar.
 Why: Removes duplicate English lines and aligns recording controls without changing stored transcript/enrichment or API behavior.
 Reversible: yes
+
+## 2026-10-07 Essential main tree and preserved development archive
+Context: Owner explicitly authorizes a branch preserving extras and a cleaned main branch.
+Options: Delete development history / archive the full snapshot and remove unused files in a normal descendant commit.
+Chosen: codex/archive-development-2026-10-07 at e19b954 preserves all tracked extras; cleanup prepared on codex/clean-main and main fast-forwards only after verification. Retain runtime/pipeline/model-host/deployment source, tests and required small fixtures. Move browser test payload into tests/fixtures; archive experiments, legacy frontend files, obsolete contract and generated/historical reports.
+Why: A clean application tree must still build/test; removing all fixtures would break verified workflows. Private local recordings/models/secrets remain ignored, untouched and excluded from branches. Fresh-clone real-artifact tests explicitly skip without owner data; real browser tests opt in.
+Reversible: yes

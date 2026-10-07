@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { writeFile } from 'node:fs/promises';
 const banner='Pre-computed results from earlier pipeline runs. Live hosted-model processing is not connected yet.';
 test('real precomputed meetings play, seek, expose tabs and honest provenance',async({page,request})=>{
+ test.skip(process.env.E2E_REAL_DEMO!=='true','Requires approved owner-provided recordings and running precomputed demo');
  const login=await request.post('http://127.0.0.1:8000/auth/login',{data:{username:'demo',password:'demo-password'}});
  const {access_token}=await login.json();
  await page.addInitScript(t=>sessionStorage.setItem('access_token',t),access_token);

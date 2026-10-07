@@ -25,7 +25,7 @@ def duration(path):
 
 def verdict(path):
     name=path.as_posix().lower()
-    if 'ground_truth' in name:return 'LLM-GENERATED REFERENCE','Ground-truth provenance documented in docs/INDICMEET_HANDOFF.md; not human ground truth or ASR output.'
+    if 'ground_truth' in name:return 'LLM-GENERATED REFERENCE','Ground-truth provenance documented in archive branch codex/archive-development-2026-10-07:docs/INDICMEET_HANDOFF.md; not human ground truth or ASR output.'
     if name in {'data/transcripts/transcript.txt','data/transcripts/transcript (1).txt','data/demo_group_full.json'}:
         return 'REAL MODEL OUTPUT (OWNER-STATED)','Owner-stated Kaggle T4 clean-room run, late Sep2026, indicmeet_asr_v2 reconstructed; Whisper large-v3 + IndicConformer routing. 226 rows:166 accepted/56 review/4 rejected; en136/hi84/other6. Full media2251.680s; diarization end2251.915s. End times reconstructed; exact versions unknown.'
     if name in {'data/sessions/group-discussion-pipeline-check/asr.json','fixtures/group_discussion_3min.mp4','data/sessions/group-discussion-pipeline-check/media.mp4'}:

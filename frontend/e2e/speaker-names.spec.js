@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
 test('demo fixture without attendee identities displays marked aliases and cited summary', async ({ page }) => {
-  const fixture = JSON.parse(await readFile('../docs/SPEAKER_NAME_EVIDENCE.json', 'utf8'));
+  const fixture = JSON.parse(await readFile('../tests/fixtures/speaker_name_session.json', 'utf8'));
   await page.addInitScript(() => sessionStorage.setItem('access_token', 'offline-ui-test'));
   await page.route('**/api/**', route => {
     const url = new URL(route.request().url());
@@ -22,7 +22,7 @@ test('demo fixture without attendee identities displays marked aliases and cited
 });
 
 test('inferred speaker and owner labels are visible with owner evidence', async ({ page }) => {
-  const fixture = JSON.parse(await readFile('../docs/SPEAKER_NAME_EVIDENCE.json', 'utf8'));
+  const fixture = JSON.parse(await readFile('../tests/fixtures/speaker_name_session.json', 'utf8'));
   fixture.transcript[0].speaker_name = 'Ravi';
   fixture.transcript[0].speaker_name_source = 'inferred';
   fixture.intelligence.actionItems = [{ text: 'Send the report', owner: 'Ravi', owner_name_source: 'inferred', source_segment_ids: [fixture.transcript[1].segment_id] }];

@@ -15,3 +15,10 @@ experiments
 fixtures/*.mp4
 fixtures/*.csv
 test-results
+
+NeMo
+colab
+notebooks
+eval/results
+**/.pytest_cache
+**/.ruff_cache

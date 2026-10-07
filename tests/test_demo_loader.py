@@ -10,6 +10,7 @@ def test_refuses_fixture_and_reference():
     for name in ["fixtures/demo_asr.json","data/ground_truth/agm_ground_truth.json"]:
         with pytest.raises(ValueError): admitted_artifact(ROOT/name)
 
+@pytest.mark.skipif(not all((ROOT/s['transcript']).exists() and (ROOT/s['media']).exists() for s in SPECS), reason='Requires owner-provided ignored real recordings/artifacts')
 def test_real_payloads_have_honest_provenance_and_no_fake_summaries():
     payloads={s['id']:build_payload(s) for s in SPECS}
     assert len(payloads['real-scrum']['transcript'])==156
@@ -23,6 +24,7 @@ def test_real_payloads_have_honest_provenance_and_no_fake_summaries():
     assert build_payload(SPECS[0])['demo_asset_fingerprint']==build_payload(SPECS[0])['demo_asset_fingerprint']
 
 
+@pytest.mark.skipif(not (ROOT/'data/transcripts/transcript.txt').exists() or not (ROOT/'data/sessions/group-discussion-pipeline-check/asr.json').exists(), reason='Requires owner-provided ignored group export')
 def test_group_export_matches_owner_counts_and_excerpt():
     from collections import Counter
     import json
